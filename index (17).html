@@ -1,0 +1,1538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Kidda — Business OS</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#f0f2f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+#root{min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:20px 14px}
+@keyframes spin{to{transform:rotate(360deg)}}
+button,select,input{font-family:inherit}
+a{text-decoration:none}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script>
+'use strict';
+const h=React.createElement;
+const{useState,useEffect,useRef,useCallback}=React;
+const GHL_KEY='pit-a5ad276b-179c-4a79-a0e1-aa7803b7c094';
+const LOC='HCTgQkfPpkO6GkhxWGj6';
+const GHLBASE='https://services.leadconnectorhq.com';
+function ghlH(){return{'Authorization':'Bearer '+GHL_KEY,'Content-Type':'application/json','Version':'2021-07-28'};}
+async function ghlApi(method,path,body){var opts={method,headers:ghlH()};if(body)opts.body=JSON.stringify(body);var res=await fetch(GHLBASE+path,opts);if(!res.ok){var t=await res.text();throw new Error('GHL '+res.status+': '+t.slice(0,100));}return res.json();}
+function aColGHL(n){var c=['#3b5bdb','#6741d9','#e8590c','#2f9e44','#1971c2','#9c36b5'];var h=0;for(var ch of(n||''))h=(h*31+ch.charCodeAt(0))&0xffff;return c[h%c.length];}
+function iniGHL(n){if(!n)return'?';return n.trim().split(' ').filter(Boolean).map(function(x){return x[0];}).join('').toUpperCase().slice(0,2);}
+function fmtRel(ts){if(!ts)return'';try{var d=new Date(ts),now=new Date(),df=now-d;if(df<60000)return'now';if(df<3600000)return Math.floor(df/60000)+'m';if(df<86400000)return Math.floor(df/3600000)+'h';if(df<604800000)return Math.floor(df/86400000)+'d';return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});}catch(e){return'';}}
+function fmtFull(ts){if(!ts)return'';try{return new Date(ts).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});}catch(e){return ts;}}
+function chInf(type){var t=(type||'').toLowerCase();if(t.includes('sms')||t.includes('phone'))return{bg:'#e7f5ff',c:'#1971c2',l:'SMS'};if(t.includes('email'))return{bg:'#f3f0ff',c:'#6741d9',l:'Email'};if(t.includes('facebook'))return{bg:'#e8f4fd',c:'#1877f2',l:'FB'};if(t.includes('instagram'))return{bg:'#fdf0f8',c:'#c13584',l:'IG'};return{bg:'#f0fdf4',c:'#2f9e44',l:'MSG'};}
+
+
+/* ─── CONSTANTS ─────────────────────────────────────────── */
+const BL="#3b5bdb",GN="#2f9e44",AM="#e67700",RD="#e03131",GR="#6b7280";
+
+const TEAM=[
+  {id:"G",name:"Gurupma",col:BL,bg:"#eef2ff"},
+  {id:"A",name:"Adnan",col:"#6741d9",bg:"#f3f0ff"},
+  {id:"Ar",name:"Arshdeep",col:GN,bg:"#f0fdf4"},
+  {id:"J",name:"Jasleen",col:"#e8590c",bg:"#fff4e6"},
+  {id:"M",name:"Mankeerat",col:"#1971c2",bg:"#e7f5ff"},
+  {id:"T",name:"Tarnjot",col:"#9c36b5",bg:"#f8f0fc"},
+];
+const TM=Object.fromEntries(TEAM.map(t=>[t.id,t]));
+
+/* Calendar colour key:
+   cal:"G"  = hello@kidda.app (Gurupma/Kidda)       col: various per event type
+   cal:"GT" = info@gteamacademy.com (Gurupma/GTeam) col: #0d9488 (teal)
+   cal:"Ar" = arshdeep@kidda.app                    col: #2f9e44 (green)
+   cal:"J"  = jasleen@kidda.app                     col: "#e8590c" (orange)
+   cal:"T"  = tarnjot@kidda.app                     col: "#9c36b5" (purple)
+*/
+const CAL_DEFS={
+  G: {name:"Gurupma (Kidda)",    col:BL,        bg:"#eef2ff"},
+  GT:{name:"G (gTeam Academy)",  col:"#0d9488",  bg:"#f0fdfa"},
+  Ar:{name:"Arshdeep",           col:GN,         bg:"#f0fdf4"},
+  J: {name:"Jasleen",            col:"#e8590c",  bg:"#fff4e6"},
+  T: {name:"Tarnjot",            col:"#9c36b5",  bg:"#f8f0fc"},
+};
+const EVENTS=[
+  /* ── MONDAY 6 APRIL ── hello@kidda.app ── */
+  {id:"e1",  ti:"Morning Routine",              d:"06",s:360, e:420, col:"#f59f00",ty:"personal",  cal:"G"},
+  {id:"e2",  ti:"Deep Work",                   d:"06",s:420, e:720, col:RD,       ty:"work",       cal:"G"},
+  {id:"e3",  ti:"Gurupma // Arsh Delivery Mtg",d:"06",s:600, e:660, col:BL,       ty:"meeting",    cal:"G"},
+  {id:"e4",  ti:"Lunch",                       d:"06",s:720, e:780, col:"#f59f00",ty:"personal",   cal:"G"},
+  {id:"e5",  ti:"Simranjeet Duhra - Intro",     d:"06",s:780, e:795, col:RD,       ty:"sales",      cal:"G"},
+  {id:"e6",  ti:"Claude Building",              d:"06",s:795, e:960, col:RD,       ty:"work",       cal:"G"},
+  {id:"e7",  ti:"Aman Badwal - Intro",          d:"06",s:840, e:855, col:RD,       ty:"sales",      cal:"G"},
+  {id:"e8",  ti:"HL Pro Tools Demo",            d:"06",s:870, e:900, col:BL,       ty:"meeting",    cal:"G"},
+  {id:"e9",  ti:"EOD Debrief",                  d:"06",s:960, e:1020,col:BL,       ty:"work",       cal:"G"},
+  {id:"e10", ti:"Dinner",                       d:"06",s:1020,e:1080,col:"#f59f00",ty:"personal",   cal:"G"},
+  {id:"e11", ti:"Family / Friends Time",        d:"06",s:1080,e:1110,col:"#f59f00",ty:"personal",   cal:"G"},
+  {id:"e12", ti:"Gym",                          d:"06",s:1110,e:1200,col:"#6741d9",ty:"personal",   cal:"G"},
+  {id:"e13", ti:"Night Routine",                d:"06",s:1200,e:1260,col:"#f59f00",ty:"personal",   cal:"G"},
+  /* Mon 6 — Arshdeep */
+  {id:"a1",  ti:"Kidda - Cohort 11",            d:"06",s:1140,e:1230,col:GN,       ty:"delivery",   cal:"Ar"},
+  /* Mon 6 — Tarnjot */
+  {id:"t1",  ti:"Eleasha & Tarn - Punjabi",     d:"06",s:1170,e:1230,col:"#9c36b5",ty:"delivery",   cal:"T"},
+
+  /* ── TUESDAY 7 APRIL ── hello@kidda.app ── */
+  {id:"e14", ti:"Morning Routine",              d:"07",s:360, e:420, col:"#f59f00",ty:"personal",   cal:"G"},
+  {id:"e15", ti:"Deep Work",                   d:"07",s:420, e:720, col:RD,       ty:"work",       cal:"G"},
+  {id:"e16", ti:"Lunch",                       d:"07",s:720, e:780, col:"#f59f00",ty:"personal",   cal:"G"},
+  {id:"e17", ti:"Bindi Chana - Intro",          d:"07",s:900, e:915, col:RD,       ty:"sales",      cal:"G"},
+  {id:"e18", ti:"Sonia Bilkhu - Intro",         d:"07",s:930, e:945, col:RD,       ty:"sales",      cal:"G"},
+  {id:"e19", ti:"EOD Debrief",                  d:"07",s:960, e:1020,col:BL,       ty:"work",       cal:"G"},
+  {id:"e20", ti:"Gym",                          d:"07",s:1020,e:1110,col:"#6741d9",ty:"personal",   cal:"G"},
+  {id:"e21", ti:"Dinner",                       d:"07",s:1110,e:1170,col:"#f59f00",ty:"personal",   cal:"G"},
+  {id:"e22", ti:"Family / Friends Time",        d:"07",s:1170,e:1200,col:"#f59f00",ty:"personal",   cal:"G"},
+  {id:"e23", ti:"Night Routine",                d:"07",s:1200,e:1260,col:"#f59f00",ty:"personal",   cal:"G"},
+  /* Tue 7 — Arshdeep */
+  {id:"a2",  ti:"Kidda - Cohort 10",            d:"07",s:1140,e:1230,col:GN,       ty:"delivery",   cal:"Ar"},
+  /* Tue 7 — Jasleen */
+  {id:"j1",  ti:"Kidda Class - Cohort 19",      d:"07",s:1140,e:1230,col:"#e8590c",ty:"delivery",   cal:"J"},
+  /* Tue 7 — Tarnjot */
+  {id:"t2",  ti:"Kidda Class - Cohort 12",      d:"07",s:1080,e:1170,col:"#9c36b5",ty:"delivery",   cal:"T"},
+
+  /* ── WEDNESDAY 8 APRIL ── hello@kidda.app ── */
+  {id:"e24", ti:"Morning Routine",              d:"08",s:360, e:420, col:"#f59f00",ty:"personal",   cal:"G"},
+  {id:"e25", ti:"Content",                      d:"08",s:420, e:600, col:RD,       ty:"work",       cal:"G"},
+  {id:"e26", ti:"Arshdeep Performance Review",  d:"08",s:600, e:630, col:BL,       ty:"meeting",    cal:"G"},
+  {id:"e27", ti:"Jasleen Performance Review",   d:"08",s:630, e:660, col:BL,       ty:"meeting",    cal:"G"},
+  {id:"e28", ti:"Tarn Performance Review",      d:"08",s:660, e:690, col:BL,       ty:"meeting",    cal:"G"},
+  {id:"e29", ti:"Lunch",                        d:"08",s:690, e:720, col:"#f59f00",ty:"personal",   cal:"G"},
+  {id:"e30", ti:"Manisha - Punjabi Sessions",   d:"08",s:720, e:780, col:"#f59f00",ty:"delivery",   cal:"G"},
+  {id:"e31", ti:"Conor // G - Ads Review",      d:"08",s:780, e:840, col:"#0d9488",ty:"meeting",    cal:"GT"},
+  {id:"e32", ti:"Weekly Sales Training",        d:"08",s:840, e:900, col:BL,       ty:"meeting",    cal:"G"},
+  {id:"e33", ti:"Kidda Team Meeting",           d:"08",s:900, e:960, col:BL,       ty:"meeting",    cal:"G"},
+  {id:"e34", ti:"EOD Debrief",                  d:"08",s:960, e:1020,col:BL,       ty:"work",       cal:"G"},
+  {id:"e35", ti:"Gym",                          d:"08",s:1020,e:1110,col:"#6741d9",ty:"personal",   cal:"G"},
+  {id:"e36", ti:"Aman Badwal - Follow Up",      d:"08",s:1110,e:1125,col:RD,       ty:"sales",      cal:"G"},
+  {id:"e37", ti:"Dinner",                       d:"08",s:1125,e:1140,col:"#f59f00",ty:"personal",   cal:"G"},
+  {id:"e38", ti:"Kidda Community Class",        d:"08",s:1140,e:1200,col:BL,       ty:"delivery",   cal:"G"},
+  {id:"e39", ti:"Night Routine",                d:"08",s:1200,e:1260,col:"#f59f00",ty:"personal",   cal:"G"},
+  /* Wed 8 — Arshdeep */
+  {id:"a3",  ti:"Kidda Community Class",        d:"08",s:1140,e:1200,col:GN,       ty:"delivery",   cal:"Ar"},
+  /* Wed 8 — Jasleen */
+  {id:"j2",  ti:"Kidda Class - Cohort 13",      d:"08",s:1140,e:1230,col:"#e8590c",ty:"delivery",   cal:"J"},
+  /* Wed 8 — Tarnjot */
+  {id:"t3",  ti:"Roshan & Tarn - Foundation",   d:"08",s:1170,e:1230,col:"#9c36b5",ty:"delivery",   cal:"T"},
+
+  /* ── THURSDAY 9 APRIL ── hello@kidda.app ── */
+  {id:"e40", ti:"Morning Routine",              d:"09",s:360, e:420, col:"#f59f00",ty:"personal",   cal:"G"},
+  {id:"e41", ti:"Content",                      d:"09",s:420, e:720, col:RD,       ty:"work",       cal:"G"},
+  {id:"e42", ti:"G x Macey - Social Strategy",  d:"09",s:540, e:570, col:"#0d9488",ty:"meeting",    cal:"GT"},
+  {id:"e43", ti:"Lunch",                        d:"09",s:720, e:780, col:"#f59f00",ty:"personal",   cal:"G"},
+  {id:"e44", ti:"Taj",                          d:"09",s:945, e:960, col:GR,       ty:"personal",   cal:"G"},
+  {id:"e45", ti:"EOD Debrief",                  d:"09",s:960, e:1020,col:BL,       ty:"work",       cal:"G"},
+  {id:"e46", ti:"1:1 GS (Harpreet Bains)",      d:"09",s:1020,e:1080,col:"#6741d9",ty:"meeting",    cal:"G"},
+  {id:"e47", ti:"Gym",                          d:"09",s:1080,e:1170,col:"#6741d9",ty:"personal",   cal:"G"},
+  {id:"e48", ti:"Dinner",                       d:"09",s:1170,e:1200,col:"#f59f00",ty:"personal",   cal:"G"},
+  {id:"e49", ti:"Night Routine",                d:"09",s:1200,e:1260,col:"#f59f00",ty:"personal",   cal:"G"},
+  /* Thu 9 — Arshdeep */
+  {id:"a4",  ti:"Kidda Class - Cohort 20",      d:"09",s:1140,e:1230,col:GN,       ty:"delivery",   cal:"Ar"},
+  /* Thu 9 — Jasleen */
+  {id:"j3",  ti:"Kidda Class - Cohort 15",      d:"09",s:1140,e:1230,col:"#e8590c",ty:"delivery",   cal:"J"},
+
+  /* ── FRIDAY 10 APRIL ── hello@kidda.app ── */
+  {id:"e50", ti:"Morning Routine",              d:"10",s:360, e:420, col:"#f59f00",ty:"personal",   cal:"G"},
+  {id:"e51", ti:"Rewire & TaxSync",             d:"10",s:420, e:570, col:RD,       ty:"work",       cal:"G"},
+  {id:"e52", ti:"Luca // G - Strategy Call",    d:"10",s:570, e:600, col:"#0d9488",ty:"meeting",    cal:"GT"},
+  {id:"e53", ti:"Hardeep // G - Weekly Strategy",d:"10",s:600,e:660, col:"#0d9488",ty:"meeting",    cal:"GT"},
+  {id:"e54", ti:"Elvijs // G - Weekly Strategy",d:"10",s:660, e:720, col:"#0d9488",ty:"meeting",    cal:"GT"},
+  {id:"e55", ti:"Manisha - Punjabi Sessions",   d:"10",s:720, e:780, col:"#f59f00",ty:"delivery",   cal:"G"},
+  {id:"e56", ti:"Lunch",                        d:"10",s:780, e:840, col:"#f59f00",ty:"personal",   cal:"G"},
+  {id:"e57", ti:"Pardeep // G - Weekly Strategy",d:"10",s:840,e:900, col:"#0d9488",ty:"meeting",    cal:"GT"},
+  {id:"e58", ti:"Karam // G - Weekly Strategy", d:"10",s:900, e:960, col:"#0d9488",ty:"meeting",    cal:"GT"},
+  {id:"e59", ti:"EOD Debrief",                  d:"10",s:960, e:1020,col:BL,       ty:"work",       cal:"G"},
+  {id:"e60", ti:"Olaitan // G - Strategy",      d:"10",s:1020,e:1080,col:"#0d9488",ty:"meeting",    cal:"GT"},
+  {id:"e61", ti:"Gym",                          d:"10",s:1080,e:1170,col:"#6741d9",ty:"personal",   cal:"G"},
+  {id:"e62", ti:"Dinner",                       d:"10",s:1170,e:1200,col:"#f59f00",ty:"personal",   cal:"G"},
+  {id:"e63", ti:"Night Routine",                d:"10",s:1200,e:1260,col:"#f59f00",ty:"personal",   cal:"G"},
+  {id:"e64", ti:"Movie Night",                  d:"10",s:1260,e:1350,col:"#f59f00",ty:"personal",   cal:"G"},
+  /* Fri 10 — Jasleen */
+  {id:"j4",  ti:"Simran // Jasleen - Taster",   d:"10",s:1140,e:1155,col:"#e8590c",ty:"delivery",   cal:"J"},
+  /* Fri 10 — Tarnjot */
+  {id:"t4",  ti:"Eleasha & Tarn - Punjabi",     d:"10",s:1170,e:1230,col:"#9c36b5",ty:"delivery",   cal:"T"},
+
+  /* ── SATURDAY 11 APRIL ── */
+  /* Sat 11 — Arshdeep */
+  {id:"a5",  ti:"Kidda Class - Cohort 18",      d:"11",s:600, e:690, col:GN,       ty:"delivery",   cal:"Ar"},
+  /* Sat 11 — Jasleen OOO */
+  {id:"j5",  ti:"Jasleen - Out of Office",      d:"11",s:360, e:1440,col:"#e8590c",ty:"personal",   cal:"J"},
+  /* Sat 11 — Tarnjot */
+  {id:"t5",  ti:"Kidda Class - Cohort 14",      d:"11",s:600, e:690, col:"#9c36b5",ty:"delivery",   cal:"T"},
+  {id:"t6",  ti:"Lilly & Tarn - Foundation",    d:"11",s:780, e:840, col:"#9c36b5",ty:"delivery",   cal:"T"},
+  /* Sat 11 — gTeam Chill */
+  {id:"gt1", ti:"Chill",                        d:"11",s:360, e:1200,col:"#0d9488",ty:"personal",   cal:"GT"},
+
+  /* ── SUNDAY 12 APRIL ── hello@kidda.app ── */
+  {id:"e65", ti:"Kidda Community Class",        d:"12",s:600, e:660, col:BL,       ty:"delivery",   cal:"G"},
+  {id:"e66", ti:"Vadim // G - Coaching",        d:"12",s:615, e:705, col:"#0d9488",ty:"meeting",    cal:"GT"},
+  {id:"e67", ti:"Create Cohort 23 WhatsApp",    d:"12",s:705, e:735, col:BL,       ty:"work",       cal:"G"},
+  {id:"e68", ti:"Daveena Badyal - Intro",        d:"12",s:735, e:750, col:RD,       ty:"sales",      cal:"G"},
+  {id:"e69", ti:"Kaya Malhi - Intro",            d:"12",s:780, e:795, col:RD,       ty:"sales",      cal:"G"},
+  {id:"e70", ti:"Jovan Kalsi - Intro",           d:"12",s:900, e:915, col:RD,       ty:"sales",      cal:"G"},
+  {id:"e71", ti:"Chill",                        d:"12",s:960, e:1140,col:"#f59f00",ty:"personal",   cal:"G"},
+  {id:"e72", ti:"Meal Planning",                d:"12",s:1140,e:1200,col:"#0d9488",ty:"personal",   cal:"GT"},
+  /* Sun 12 — Arshdeep */
+  {id:"a6",  ti:"Kidda Community Class",        d:"12",s:600, e:660, col:GN,       ty:"delivery",   cal:"Ar"},
+  {id:"a7",  ti:"Head of Delivery Review",      d:"12",s:1020,e:1080,col:GN,       ty:"meeting",    cal:"Ar"},
+  /* Sun 12 — Tarnjot */
+  {id:"t7",  ti:"Kidda Class - Cohort 21",      d:"12",s:1080,e:1170,col:"#9c36b5",ty:"delivery",   cal:"T"},
+];
+
+const TASKS_INIT=[
+  {id:"t1",n:"Offboard Cohort 9",st:"Not started",pr:"High",own:"A",due:"07/04",est:45,src:"Standup",url:"https://www.notion.so/33ab5ac429c681908930d27ea77d7d73",sch:null},
+  {id:"t2",n:"Create DNF offboarding messages",st:"Not started",pr:"High",own:"A",due:"07/04",est:30,src:"Standup",url:"https://www.notion.so/33ab5ac429c6813d958ecb7ac0701f31",sch:null},
+  {id:"t3",n:"Update founder offer email",st:"Not started",pr:"High",own:"A",due:"07/04",est:30,src:"Standup",url:"https://www.notion.so/33ab5ac429c68142bd20f98ee87ca52f",sch:null},
+  {id:"t4",n:"Complete Weekly Data Review",st:"Not started",pr:"High",own:"A",due:"07/04",est:60,src:"Standup",url:"https://www.notion.so/33ab5ac429c681d4887ef4e265160bd5",sch:null},
+  {id:"t5",n:"Increase ad spend",st:"Not started",pr:"High",own:"G",due:"07/04",est:20,src:"Standup",url:"https://www.notion.so/33ab5ac429c681aea19adc46fe20b21f",sch:null},
+  {id:"t6",n:"Set up EOD booking tracker",st:"Not started",pr:"Medium",own:"G",due:"07/04",est:45,src:"Standup",url:"https://www.notion.so/33ab5ac429c6818a9e5fffda753f113c",sch:null},
+  {id:"t7",n:"Initiate April payroll cycle",st:"Not started",pr:"High",own:"G",due:"16/04",est:30,src:"Standup",url:"https://www.notion.so/33ab5ac429c681f0bf12d038591ff6ac",sch:null},
+  {id:"t8",n:"Follow up Aman Badwal",st:"Not started",pr:"Medium",own:"G",due:"09/04",est:15,src:"EOD",url:"https://www.notion.so/33ab5ac429c6812d8135ca21cb16d5b8",sch:null},
+  {id:"t9",n:"Review TaxSync CGO offer letter",st:"Not started",pr:"Medium",own:"G",due:"09/04",est:60,src:"Emails",url:"https://www.notion.so/33ab5ac429c6813996c0f92c53387cba",sch:null},
+  {id:"t10",n:"Pull close rate from Sales Call Log",st:"Not started",pr:"Low",own:"G",due:"07/04",est:20,src:"Standup",url:"https://www.notion.so/33ab5ac429c6815480d4dd7800b073d7",sch:null},
+];
+
+const ROUTINES=[
+  {n:"Booking in Sales Calls",a:"Acquisition",s:"Needs Improvement",f:"Daily",p:"G"},
+  {n:"Closing Deals",a:"Acquisition",s:"Needs Improvement",f:"Daily",p:"G"},
+  {n:"Offboarding",a:"Delivery",s:"Needs Improvement",f:"Daily",p:"A"},
+  {n:"Attendance Rate",a:"Delivery",s:"Needs Improvement",f:"Weekly",p:"G"},
+  {n:"Updating weekly stats",a:"Operations",s:"Needs Improvement",f:"Weekly",p:"A"},
+  {n:"Pay tutors",a:"Operations",s:"Building Momentum",f:"Monthly",p:"G"},
+  {n:"Have leads show up",a:"Acquisition",s:"Going Well",f:"Daily",p:"G"},
+  {n:"Follow Ups Post Sales Call",a:"Acquisition",s:"Going Well",f:"Daily",p:"A"},
+  {n:"Onboarding",a:"Delivery",s:"Going Well",f:"Daily",p:"A"},
+  {n:"Collect outstanding balances",a:"Operations",s:"Going Well",f:"Weekly",p:"A"},
+];
+
+const TL_DATA={
+  today:{l:"Mon 6 Apr",cl:2,ca:"£800",bk:3},
+  yesterday:{l:"Sun 5 Apr",cl:0,ca:"£0",bk:3},
+  "7d":{l:"31 Mar–6 Apr",cl:5,ca:"£2,000",bk:5},
+  "30d":{l:"8 Mar–6 Apr",cl:18,ca:"£7,200",bk:42},
+  mtd:{l:"1–6 Apr",cl:5,ca:"£2,000",bk:5},
+};
+
+const DAYS=["Mon 6","Tue 7","Wed 8","Thu 9","Fri 10","Sat 11","Sun 12"];
+const DATES=["06","07","08","09","10","11","12"];
+const DAY_NAMES=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+
+/* ─── HELPERS ───────────────────────────────────────────── */
+function m2t(m){return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");}
+function pill(c,bg,tx){return h('span',{style:{display:"inline-flex",padding:"2px 7px",borderRadius:4,fontSize:10,fontWeight:500,color:c,background:bg}},tx);}
+function btn(label,onClick,style){return h('button',{onClick,style:{fontSize:11,padding:"5px 11px",borderRadius:7,cursor:"pointer",border:"1px solid #e8eaf0",background:"#fff",color:GR,fontWeight:500,...style}},label);}
+
+function Av(props){
+  var t=TM[props.id];var sz=props.size||18;
+  if(!t)return null;
+  return h('div',{style:{width:sz,height:sz,borderRadius:"50%",background:t.bg,border:"1.5px solid "+t.col,display:"flex",alignItems:"center",justifyContent:"center",fontSize:sz*0.38,fontWeight:500,color:t.col,flexShrink:0}},t.id);
+}
+
+function Checkbox(props){
+  return h('div',{onClick:props.onToggle,style:{width:13,height:13,borderRadius:3,border:"1.5px solid "+(props.checked?BL:"#c5cae9"),background:props.checked?BL:"transparent",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}},
+    props.checked&&h('div',{style:{width:7,height:5,borderLeft:"2px solid #fff",borderBottom:"2px solid #fff",transform:"rotate(-45deg) translate(1px,-1px)"}})
+  );
+}
+
+/* ─── CALENDAR ──────────────────────────────────────────── */
+function CalendarPage(props){
+  var tasks=props.tasks;
+  var setTasks=props.setTasks;
+  var[viewDay,setViewDay]=useState(null);
+  var[calFilt,setCalFilt]=useState(["G","GT","Ar","J","T"]);
+  var[schedMode,setSchedMode]=useState(false);
+  var[suggs,setSuggs]=useState([]);
+  var[confirmed,setConfirmed]=useState({});
+  var[refreshKey,setRefreshKey]=useState(0);
+
+  var HOURS=[];for(var i=6;i<=20;i++)HOURS.push(i);
+
+  /* Assign side-by-side columns to overlapping events so they don't stack */
+  function layoutEvents(evs){
+    if(!evs.length)return[];
+    var sorted=evs.slice().sort(function(a,b){return a.s-b.s;});
+    var cols=[];
+    var result=[];
+    for(var i=0;i<sorted.length;i++){
+      var ev=sorted[i];
+      var placed=false;
+      for(var ci=0;ci<cols.length;ci++){
+        if(cols[ci]<=ev.s){cols[ci]=ev.e;result.push({ev:ev,col:ci});placed=true;break;}
+      }
+      if(!placed){cols.push(ev.e);result.push({ev:ev,col:cols.length-1});}
+    }
+    var total=cols.length;
+    return result.map(function(r){return{ev:r.ev,col:r.col,total:total};});
+  }
+
+  var meetingCount=EVENTS.filter(function(e){return["meeting","sales"].includes(e.ty);}).length;
+  var deepH=Math.round(EVENTS.filter(function(e){return e.ti.includes("Deep Work")||e.ti.includes("Rewire")||e.ti.includes("Claude");}).reduce(function(a,e){return a+(e.e-e.s);},0)/60);
+
+  function getFreeSlots(d){
+    var busy=EVENTS.filter(function(e){return e.d===d;}).sort(function(a,b){return a.s-b.s;});
+    var slots=[];var cursor=480;
+    for(var i=0;i<busy.length;i++){var b=busy[i];if(b.s>cursor&&b.s-cursor>=30)slots.push({s:cursor,e:b.s,dur:b.s-cursor});cursor=Math.max(cursor,b.e);}
+    if(cursor<1020&&1020-cursor>=30)slots.push({s:cursor,e:1020,dur:1020-cursor});
+    return slots;
+  }
+
+  function generateSuggs(){
+    var open=tasks.filter(function(t){return t.st!=="Done";});
+    var slotsMap={};
+    DATES.slice(1,5).forEach(function(d){slotsMap[d]=getFreeSlots(d).map(function(s){return Object.assign({},s);});});
+    var result=[];
+    for(var i=0;i<open.length;i++){
+      var task=open[i];var est=task.est||30;
+      for(var j=1;j<5;j++){
+        var d=DATES[j];
+        var slot=slotsMap[d].find(function(s){return s.dur>=est;});
+        if(slot&&!result.find(function(r){return r.tid===task.id;})){
+          result.push({tid:task.id,tname:task.n,date:d,dayLabel:DAY_NAMES[j],start:slot.s,end:slot.s+est,est:est,own:task.own,pr:task.pr});
+          slot.s+=est;slot.dur-=est;break;
+        }
+      }
+    }
+    setSuggs(result);setSchedMode(true);
+  }
+
+  function confirmSug(tid){
+    var sug=suggs.find(function(s){return s.tid===tid;});if(!sug)return;
+    setConfirmed(function(prev){var n=Object.assign({},prev);n[tid]=true;return n;});
+    setTasks(function(prev){return prev.map(function(t){return t.id===tid?Object.assign({},t,{st:"In progress",sch:DAY_NAMES[DATES.indexOf(sug.date)].slice(0,3)+" "+m2t(sug.start)}):t;});});
+  }
+
+  function confirmAll(){suggs.forEach(function(s){confirmSug(s.tid);});setSchedMode(false);}
+
+  var visEvts=EVENTS.filter(function(e){return calFilt.includes(e.cal);});
+
+  /* render */
+  return h('div',{style:{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",height:"100%"}},
+
+    /* toolbar */
+    h('div',{style:{padding:"8px 14px",background:"#fff",borderBottom:"1px solid #e8eaf0",display:"flex",flexDirection:"column",gap:6,flexShrink:0}},
+      /* row 1 — calendar toggles + actions */
+      h('div',{style:{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}},
+        /* Gurupma section */
+        h('span',{style:{fontSize:9,fontWeight:600,color:"#c5cae9",textTransform:"uppercase",letterSpacing:".06em",marginRight:2}},"Gurupma"),
+        [
+          {id:"G",  label:"Kidda",        col:BL,       bg:"#eef2ff"},
+          {id:"GT", label:"gTeam Academy",col:"#0d9488",bg:"#f0fdfa"},
+        ].map(function(cal){
+          var on=calFilt.includes(cal.id);
+          return h('button',{key:cal.id,
+            onClick:function(){setCalFilt(function(prev){return on?prev.filter(function(x){return x!==cal.id;}):[].concat(prev,[cal.id]);});},
+            style:{fontSize:10,padding:"3px 10px",borderRadius:20,cursor:"pointer",
+                   border:"1px solid "+(on?cal.col:"#e8eaf0"),
+                   background:on?cal.bg:"#fff",color:on?cal.col:GR,fontWeight:on?600:400,
+                   display:"flex",alignItems:"center",gap:4}},
+            h('span',{style:{width:7,height:7,borderRadius:"50%",background:on?cal.col:"#d0d3e8",display:"inline-block",flexShrink:0}}),
+            cal.label
+          );
+        }),
+        /* divider */
+        h('div',{style:{width:1,height:18,background:"#e8eaf0",margin:"0 4px"}}),
+        /* Tutors section */
+        h('span',{style:{fontSize:9,fontWeight:600,color:"#c5cae9",textTransform:"uppercase",letterSpacing:".06em",marginRight:2}},"Tutors"),
+        [
+          {id:"Ar",label:"Arshdeep",col:GN,       bg:"#f0fdf4"},
+          {id:"J", label:"Jasleen",  col:"#e8590c",bg:"#fff4e6"},
+          {id:"T", label:"Tarnjot",  col:"#9c36b5",bg:"#f8f0fc"},
+        ].map(function(cal){
+          var on=calFilt.includes(cal.id);
+          return h('button',{key:cal.id,
+            onClick:function(){setCalFilt(function(prev){return on?prev.filter(function(x){return x!==cal.id;}):[].concat(prev,[cal.id]);});},
+            style:{fontSize:10,padding:"3px 10px",borderRadius:20,cursor:"pointer",
+                   border:"1px solid "+(on?cal.col:"#e8eaf0"),
+                   background:on?cal.bg:"#fff",color:on?cal.col:GR,fontWeight:on?600:400,
+                   display:"flex",alignItems:"center",gap:4}},
+            h('span',{style:{width:7,height:7,borderRadius:"50%",background:on?cal.col:"#d0d3e8",display:"inline-block",flexShrink:0}}),
+            cal.label
+          );
+        }),
+        /* all / none shortcuts */
+        h('div',{style:{marginLeft:4,display:"flex",gap:3}},
+          h('button',{onClick:function(){setCalFilt(["G","GT","Ar","J","T"]);},
+            style:{fontSize:9,padding:"2px 6px",borderRadius:4,border:"1px solid #e8eaf0",background:"#f5f6fa",color:GR,cursor:"pointer"}},"All"),
+          h('button',{onClick:function(){setCalFilt([]);},
+            style:{fontSize:9,padding:"2px 6px",borderRadius:4,border:"1px solid #e8eaf0",background:"#f5f6fa",color:GR,cursor:"pointer"}},"None")
+        ),
+        /* actions flush right */
+        h('div',{style:{marginLeft:"auto",display:"flex",gap:6,alignItems:"center"}},
+          h('button',{
+            onClick:function(){setRefreshKey(function(k){return k+1;});},
+            title:"Refresh calendar",
+            style:{fontSize:11,padding:"4px 9px",borderRadius:6,border:"1px solid #e8eaf0",background:"#fff",color:GR,cursor:"pointer",display:"flex",alignItems:"center",gap:4}
+          },
+            h('svg',{viewBox:"0 0 20 20",fill:"none",stroke:"currentColor",strokeWidth:1.5,width:12,height:12},h('path',{d:"M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"})),
+            "Refresh"
+          ),
+          h('button',{onClick:generateSuggs,style:{fontSize:11,padding:"4px 12px",borderRadius:6,cursor:"pointer",border:"1px solid "+AM,background:"#fff",color:AM,fontWeight:600}},"Schedule tasks →"),
+          h('a',{href:"https://calendar.google.com",target:"_blank",style:{fontSize:11,padding:"4px 9px",borderRadius:6,border:"1px solid #e8eaf0",background:"#fff",color:BL,fontWeight:500,textDecoration:"none"}},"Google Calendar →")
+        )
+      )
+    ),
+
+    /* analysis strip */
+    h('div',{style:{display:"flex",gap:6,padding:"8px 14px",background:"#fff",borderBottom:"1px solid #f0f2f7",flexShrink:0,overflowX:"auto"}},
+      [[meetingCount+" events","Meetings this week",AM,"#fff8e1"],
+       [deepH+"h","Deep work scheduled",RD,"#fff5f5"],
+       ["~14h","Free slots Tue–Fri",GN,"#f0fdf4"],
+       [EVENTS.filter(function(e){return e.d==="08";}).length+" events","Wed is busiest",BL,"#eef2ff"],
+      ].map(function(item,i){
+        return h('div',{key:i,style:{borderRadius:7,padding:"7px 12px",flexShrink:0,background:item[3],minWidth:110}},
+          h('div',{style:{fontSize:9,color:GR,fontWeight:500,textTransform:"uppercase",letterSpacing:".04em",marginBottom:3}},item[1]),
+          h('div',{style:{fontSize:15,fontWeight:500,color:item[2],marginBottom:2}},item[0])
+        );
+      })
+    ),
+
+    /* schedule banner */
+    schedMode&&h('div',{style:{padding:"10px 14px",background:"#eef2ff",borderBottom:"1px solid #c5d7ff",flexShrink:0}},
+      h('div',{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}},
+        h('div',null,
+          h('div',{style:{fontSize:12,fontWeight:500,color:BL,marginBottom:2}},suggs.length+" tasks placed into free slots"),
+          h('div',{style:{fontSize:11,color:GR}},"Deep Work and meetings protected. Click individual Add or confirm all.")
+        ),
+        h('div',{style:{display:"flex",gap:6}},
+          h('button',{onClick:confirmAll,style:{fontSize:11,padding:"6px 14px",borderRadius:7,border:"1px solid "+GN,background:GN,color:"#fff",fontWeight:500,cursor:"pointer"}},"Confirm all + add to calendar"),
+          h('button',{onClick:function(){setSchedMode(false);},style:{fontSize:11,padding:"6px 14px",borderRadius:7,border:"1px solid #e8eaf0",background:"#fff",color:GR,cursor:"pointer"}},"Dismiss")
+        )
+      ),
+      h('div',{style:{display:"flex",flexWrap:"wrap",gap:5}},
+        suggs.map(function(s){
+          var done=!!confirmed[s.tid];
+          return h('div',{key:s.tid,style:{display:"inline-flex",alignItems:"center",gap:7,padding:"6px 10px",borderRadius:8,background:done?"#f0fdf4":"#fff",border:"1px solid "+(done?"#b2f2bb":"#c5d7ff"),fontSize:11}},
+            h('div',{style:{width:5,height:5,borderRadius:"50%",background:s.pr==="High"?RD:s.pr==="Medium"?AM:GN,flexShrink:0}}),
+            h('div',null,
+              h('div',{style:{fontWeight:500,color:"#1a1a2e",maxWidth:150,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},s.tname.length>22?s.tname.slice(0,22)+"…":s.tname),
+              h('div',{style:{fontSize:9,color:GR}},s.dayLabel.slice(0,3)+" "+m2t(s.start)+"–"+m2t(s.end)+" · "+s.est+"min")
+            ),
+            h(Av,{id:s.own,size:14}),
+            !done&&h('button',{onClick:function(){confirmSug(s.tid);},style:{fontSize:9,padding:"2px 8px",borderRadius:4,border:"1px solid "+BL,background:BL,color:"#fff",cursor:"pointer"}},"Add"),
+            done&&h('span',{style:{fontSize:10,color:GN,fontWeight:500}},"✓")
+          );
+        })
+      )
+    ),
+
+    /* ── WEEK GRID — continuous time positioning ── */
+    /* ROW_H = px per hour. Events use top = (startMin - FIRST*60) * PPM, height = duration * PPM */
+    viewDay===null&&h('div',{key:"week"+refreshKey,style:{flex:1,overflow:"auto"}},
+      (function(){
+        var ROW_H=52,FIRST=HOURS[0],startMin=FIRST*60,PPM=ROW_H/60,totalH=HOURS.length*ROW_H;
+        return h('div',{style:{display:"flex",flexDirection:"column"}},
+          /* Day header row */
+          h('div',{style:{display:"grid",gridTemplateColumns:"44px repeat(7,1fr)",background:"#fff",borderBottom:"1px solid #e8eaf0",position:"sticky",top:0,zIndex:20,flexShrink:0}},
+            h('div',null),
+            DAYS.map(function(d,i){
+              return h('div',{key:d,onClick:function(){setViewDay(DATES[i]);},
+                style:{padding:"6px 4px",textAlign:"center",fontSize:10,fontWeight:500,color:DATES[i]==="06"?BL:GR,cursor:"pointer",background:DATES[i]==="06"?"#eef2ff":"transparent"}},
+                h('div',{style:{fontSize:9,textTransform:"uppercase",letterSpacing:".04em",color:"inherit"}},d.split(" ")[0]),
+                h('div',{style:{fontSize:13,fontWeight:600}},d.split(" ")[1])
+              );
+            })
+          ),
+          /* Body: time gutter + 7 day columns, all in a flex row */
+          h('div',{style:{display:"flex",flex:1}},
+            /* Time gutter */
+            h('div',{style:{width:44,flexShrink:0,position:"relative",height:totalH}},
+              HOURS.map(function(hr){
+                return h('div',{key:hr,style:{position:"absolute",top:(hr-FIRST)*ROW_H,right:5,fontSize:9,color:"#c5cae9",lineHeight:1}},hr+":00");
+              })
+            ),
+            /* Day columns */
+            DATES.map(function(d,di){
+              var dayEvs=visEvts.filter(function(e){return e.d===d;});
+              var laid=layoutEvents(dayEvs);
+              var schEvs=[];
+              tasks.forEach(function(t){
+                if(!confirmed[t.id])return;
+                var sug=suggs.find(function(s){return s.tid===t.id&&s.date===d;});
+                if(sug)schEvs.push({id:"sch-"+t.id,ti:"✓ "+t.n,s:sug.start,e:sug.end});
+              });
+              return h('div',{key:d,style:{flex:1,minWidth:0,borderLeft:"0.5px solid #f0f2f7",position:"relative",height:totalH}},
+                /* hour lines */
+                HOURS.map(function(hr){
+                  return h('div',{key:hr,style:{position:"absolute",top:(hr-FIRST)*ROW_H,left:0,right:0,borderTop:"0.5px solid #f5f6fa"}});
+                }),
+                /* events */
+                laid.map(function(item){
+                  var ev=item.ev,col=item.col,total=item.total;
+                  var colW=100/total;
+                  var topPx=(ev.s-startMin)*PPM;
+                  var htPx=Math.max(16,(ev.e-ev.s)*PPM-1);
+                  return h('div',{key:ev.id,title:ev.ti+" · "+m2t(ev.s)+"–"+m2t(ev.e),style:{
+                    position:"absolute",
+                    top:topPx,
+                    left:"calc("+Math.round(col*colW)+"% + 1px)",
+                    width:"calc("+Math.round(colW)+"% - 2px)",
+                    height:htPx,
+                    background:ev.col+"20",
+                    borderLeft:"2.5px solid "+ev.col,
+                    borderRadius:"0 3px 3px 0",
+                    padding:"2px 3px",
+                    overflow:"hidden",
+                    cursor:"pointer",
+                    zIndex:col+2
+                  }},
+                    h('div',{style:{fontSize:9,fontWeight:600,color:ev.col,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",lineHeight:1.3}},ev.ti),
+                    htPx>28&&h('div',{style:{fontSize:8,color:ev.col,opacity:.75,lineHeight:1.2}},m2t(ev.s)+"–"+m2t(ev.e))
+                  );
+                }),
+                /* scheduled tasks */
+                schEvs.map(function(ev){
+                  var topPx=(ev.s-startMin)*PPM;
+                  var htPx=Math.max(14,(ev.e-ev.s)*PPM-1);
+                  return h('div',{key:ev.id,style:{
+                    position:"absolute",top:topPx,left:1,right:2,height:htPx,
+                    background:"#f0fdf4",borderLeft:"2.5px solid "+GN,
+                    borderRadius:"0 3px 3px 0",padding:"1px 3px",overflow:"hidden",zIndex:12
+                  }},h('div',{style:{fontSize:8,fontWeight:500,color:GN,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},ev.ti));
+                })
+              );
+            })
+          )
+        );
+      })()
+    ),
+
+    /* day view */
+    viewDay!==null&&h('div',{style:{flex:1,overflow:"auto",padding:"10px 14px"}},
+      h('div',{style:{display:"flex",gap:4,marginBottom:10}},
+        h('button',{onClick:function(){setViewDay(null);},style:{fontSize:11,padding:"4px 11px",borderRadius:6,border:"1px solid #e8eaf0",background:"#fff",color:GR,cursor:"pointer"}},"← Week view"),
+        DAYS.map(function(d,i){
+          return h('button',{key:d,onClick:function(){setViewDay(DATES[i]);},style:{fontSize:10,padding:"3px 10px",borderRadius:6,border:"1px solid "+(viewDay===DATES[i]?BL:"#e8eaf0"),background:viewDay===DATES[i]?BL:"#fff",color:viewDay===DATES[i]?"#fff":GR,cursor:"pointer"}},d);
+        })
+      ),
+      h('div',{style:{display:"grid",gridTemplateColumns:"44px 1fr"}},
+        HOURS.map(function(hr){
+          var slotS=hr*60,slotE=(hr+1)*60;
+          var evs=EVENTS.filter(function(e){return e.d===viewDay&&e.s>=slotS&&e.s<slotE;});
+          var schItems=tasks.filter(function(t){
+            if(!confirmed[t.id])return false;
+            var sug=suggs.find(function(s){return s.tid===t.id&&s.date===viewDay&&s.start>=slotS&&s.start<slotE;});
+            return !!sug;
+          });
+          return [
+            h('div',{key:"h"+hr,style:{fontSize:10,color:"#c5cae9",textAlign:"right",paddingRight:8,paddingTop:3,height:52,borderTop:"0.5px solid #f5f6fa"}},[hr,":00"].join("")),
+            h('div',{key:"c"+hr,style:{height:52,borderTop:"0.5px solid #f5f6fa",padding:"2px 0",display:"flex",flexDirection:"column",gap:2}},
+              evs.map(function(ev){
+                return h('div',{key:ev.id,style:{background:ev.col+"18",borderLeft:"3px solid "+ev.col,borderRadius:"0 4px 4px 0",padding:"3px 8px",display:"flex",alignItems:"center",gap:6}},
+                  h('div',{style:{flex:1,minWidth:0}},
+                    h('div',{style:{fontSize:11,fontWeight:500,color:"#1a1a2e",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},ev.ti),
+                    h('div',{style:{fontSize:10,color:GR}},m2t(ev.s)+"–"+m2t(ev.e))
+                  ),
+                  h('span',{style:{fontSize:9,padding:"1px 5px",borderRadius:3,background:ev.col+"22",color:ev.col,fontWeight:500}},ev.ty)
+                );
+              }),
+              schItems.map(function(t){
+                return h('div',{key:"s"+t.id,style:{background:"#f0fdf4",borderLeft:"3px solid "+GN,borderRadius:"0 4px 4px 0",padding:"3px 8px",fontSize:11,color:GN,fontWeight:500}},"✓ "+t.n+" (scheduled)");
+              })
+            )
+          ];
+        }).flat()
+      )
+    )
+  );
+}
+
+/* ─── TASKS PAGE ────────────────────────────────────────── */
+function TasksPage(props){
+  var tasks=props.tasks;
+  var setTasks=props.setTasks;
+  var goCalendar=props.goCalendar;
+
+  var[filt,setFilt]=useState("all");
+  var[stat,setStat]=useState("all");
+  var[sort,setSort]=useState("due");
+  var[sched,setSched]=useState(false);
+
+  var ft=tasks
+    .filter(function(t){return(filt==="all"||t.own===filt)&&(stat==="all"||t.st===stat);})
+    .sort(function(a,b){return sort==="priority"?["High","Medium","Low"].indexOf(a.pr)-["High","Medium","Low"].indexOf(b.pr):a.due.localeCompare(b.due);});
+
+  function handleSched(){
+    setSched(true);
+    setTimeout(function(){setSched(false);goCalendar();},1600);
+  }
+
+  return h('div',{style:{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}},
+
+    /* toolbar */
+    h('div',{style:{padding:"9px 14px",background:"#fff",borderBottom:"1px solid #e8eaf0",display:"flex",alignItems:"center",gap:6,flexShrink:0,flexWrap:"wrap"}},
+      h('span',{style:{fontSize:10,color:GR}},"Person:"),
+      h('button',{onClick:function(){setFilt("all");},style:{fontSize:10,padding:"3px 10px",borderRadius:20,cursor:"pointer",border:"1px solid",borderColor:filt==="all"?"#1a1a2e":"#e8eaf0",background:filt==="all"?"#1a1a2e":"#fff",color:filt==="all"?"#fff":GR,fontWeight:500}},"All"),
+      TEAM.map(function(t){
+        return h('button',{key:t.id,onClick:function(){setFilt(filt===t.id?"all":t.id);},style:{fontSize:10,padding:"3px 9px",borderRadius:20,cursor:"pointer",border:"1px solid "+(filt===t.id?t.col:"#e8eaf0"),background:filt===t.id?t.bg:"#fff",color:filt===t.id?t.col:GR,fontWeight:filt===t.id?500:400,display:"flex",alignItems:"center",gap:4}},
+          h(Av,{id:t.id,size:13}),t.name
+        );
+      }),
+      h('div',{style:{marginLeft:"auto",display:"flex",gap:5,alignItems:"center"}},
+        h('select',{value:stat,onChange:function(e){setStat(e.target.value);},style:{fontSize:11,padding:"4px 8px",borderRadius:6,border:"1px solid #e8eaf0",background:"#fff",color:GR,cursor:"pointer"}},
+          h('option',{value:"all"},"All statuses"),
+          h('option',{value:"Not started"},"Not started"),
+          h('option',{value:"In progress"},"In progress"),
+          h('option',{value:"Done"},"Done")
+        ),
+        h('select',{value:sort,onChange:function(e){setSort(e.target.value);},style:{fontSize:11,padding:"4px 8px",borderRadius:6,border:"1px solid #e8eaf0",background:"#fff",color:GR,cursor:"pointer"}},
+          h('option',{value:"due"},"Sort: due date"),
+          h('option',{value:"priority"},"Sort: priority")
+        ),
+        h('button',{onClick:handleSched,disabled:sched,style:{fontSize:11,padding:"5px 13px",borderRadius:7,border:"1px solid "+AM,background:sched?"#fffbef":"#fff",color:AM,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:5}},
+          sched?[h('div',{key:"sp",style:{width:10,height:10,border:"1.5px solid "+AM,borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.7s linear infinite"}})," Reading calendar…"]:"Schedule tasks →"
+        ),
+        h('a',{href:"https://www.notion.so/289b5ac429c680d08a23cfe5feb243b7",target:"_blank",style:{fontSize:11,padding:"5px 10px",borderRadius:6,border:"1px solid #e8eaf0",background:"#fff",color:BL,fontWeight:500}},"Notion →")
+      )
+    ),
+
+    sched&&h('div',{style:{padding:"8px 14px",background:"#fffbef",borderBottom:"1px solid #ffe08a",fontSize:11,color:AM,display:"flex",alignItems:"center",gap:7,flexShrink:0}},
+      h('div',{style:{width:10,height:10,border:"1.5px solid "+AM,borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.7s linear infinite"}}),
+      "Reading your calendar to find the best free slots for each task…"
+    ),
+
+    /* table */
+    h('div',{style:{flex:1,overflow:"auto",padding:"0 14px 14px"}},
+      h('table',{style:{width:"100%",borderCollapse:"collapse",marginTop:12,fontSize:12}},
+        h('thead',null,h('tr',null,
+          ["","Task","Person","Priority","Status","Due","Est.","Scheduled","Source",""].map(function(c){
+            return h('th',{key:c,style:{textAlign:"left",padding:"7px 10px",borderBottom:"1px solid #e8eaf0",fontSize:9,fontWeight:500,color:GR,textTransform:"uppercase",letterSpacing:".05em",background:"#fff",position:"sticky",top:0,zIndex:1,whiteSpace:"nowrap"}},c);
+          })
+        )),
+        h('tbody',null,
+          ft.map(function(t){
+            var tm=TM[t.own];
+            var prC=t.pr==="High"?RD:t.pr==="Medium"?AM:GN;
+            var prB=t.pr==="High"?"#fff5f5":t.pr==="Medium"?"#fff8e1":"#f0fdf4";
+            return h('tr',{key:t.id,style:{borderBottom:"0.5px solid #f5f6fa"}},
+              h('td',{style:{padding:"8px 10px",width:26}},
+                h(Checkbox,{checked:t.st==="Done",onToggle:function(){setTasks(function(p){return p.map(function(x){return x.id===t.id?Object.assign({},x,{st:x.st==="Done"?"Not started":"Done"}):x;});});}})
+              ),
+              h('td',{style:{padding:"8px 10px",fontWeight:500,color:t.st==="Done"?"#8b92a5":"#1a1a2e",textDecoration:t.st==="Done"?"line-through":"none",maxWidth:200}},
+                h('div',{style:{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},t.n)
+              ),
+              h('td',{style:{padding:"8px 10px"}},tm&&h('div',{style:{display:"flex",alignItems:"center",gap:5}},h(Av,{id:t.own,size:16}),h('span',{style:{fontSize:11,color:GR}},tm.name))),
+              h('td',{style:{padding:"8px 10px"}},pill(prC,prB,t.pr)),
+              h('td',{style:{padding:"8px 10px"}},
+                h('select',{value:t.st,onChange:function(e){var v=e.target.value;setTasks(function(p){return p.map(function(x){return x.id===t.id?Object.assign({},x,{st:v}):x;});});},style:{fontSize:10,padding:"2px 6px",borderRadius:4,border:"1px solid #e8eaf0",background:"#f9fafb",color:t.st==="Done"?GN:t.st==="In progress"?BL:GR,cursor:"pointer"}},
+                  ["Not started","In progress","Waiting","Done"].map(function(s){return h('option',{key:s,value:s},s);})
+                )
+              ),
+              h('td',{style:{padding:"8px 10px",color:GR,fontSize:11}},t.due),
+              h('td',{style:{padding:"8px 10px",color:GR,fontSize:11}},t.est+"m"),
+              h('td',{style:{padding:"8px 10px"}},
+                t.sch?pill(GN,"#f0fdf4",t.sch):h('span',{style:{fontSize:10,color:"#c5cae9"}},"—")
+              ),
+              h('td',{style:{padding:"8px 10px"}},pill(GR,"#f5f6fa",t.src)),
+              h('td',{style:{padding:"8px 10px"}},h('a',{href:t.url,target:"_blank",style:{fontSize:10,padding:"2px 7px",borderRadius:4,border:"1px solid #e8eaf0",background:"#fff",color:GR}},"Open"))
+            );
+          }),
+          ft.length===0&&h('tr',null,h('td',{colSpan:10,style:{padding:40,textAlign:"center",color:GR,fontSize:12}},"No tasks match this filter."))
+        )
+      )
+    )
+  );
+}
+
+/* ─── DASHBOARD HELPERS ─────────────────────────────────── */
+function StatCard(props){
+  return h('div',{style:{background:"#fff",borderRadius:8,border:"1px solid #e8eaf0",padding:"11px 13px"}},
+    h('div',{style:{fontSize:10,color:GR,marginBottom:4,fontWeight:500,textTransform:"uppercase",letterSpacing:".03em"}},props.label),
+    h('div',{style:{fontSize:props.val&&String(props.val).length>5?14:20,fontWeight:700,color:"#1a1a2e",lineHeight:1,marginBottom:3,paddingTop:String(props.val).length>5?3:0}},String(props.val)),
+    h('div',{style:{fontSize:10,fontWeight:500,color:props.color}},props.sub)
+  );
+}
+
+/* ─── CONVERSATIONS PAGE ─────────────────────────────────── */
+function ConversationsPage(){
+  var[list,setList]=useState([]);
+  var[loading,setLoading]=useState(false);
+  var[loadingMore,setLoadingMore]=useState(false);
+  var[loadingAll,setLoadingAll]=useState(false);
+  var[err,setErr]=useState('');
+  var[filter,setFilter]=useState('all');
+  var[search,setSearch]=useState('');
+  var[sel,setSel]=useState(null);
+  var[msgs,setMsgs]=useState([]);
+  var[mLoading,setML]=useState(false);
+  var[txt,setTxt]=useState('');
+  var[sending,setSending]=useState(false);
+  var[sendSt,setSendSt]=useState('');
+  var[unread,setUnread]=useState(0);
+  var[nextCursor,setNextCursor]=useState(null);
+  var[total,setTotal]=useState(0);
+  var endRef=useRef(null);
+
+  var loadConvos=useCallback(async function(){
+    setLoading(true);setErr('');setList([]);setNextCursor(null);setTotal(0);
+    try{
+      var d=await ghlApi('GET','/conversations/search?locationId='+LOC+'&limit=100');
+      var l=d.conversations||[];
+      setList(l);
+      setTotal(d.total||d.meta?.total||l.length);
+      setNextCursor(d.meta?.nextCursor||d.meta?.startAfter||d.nextCursor||null);
+      setUnread(l.filter(function(c){return c.unreadCount>0||c.unread;}).length);
+    }catch(e){setErr(e.message);}
+    setLoading(false);
+  },[]);
+
+  var loadMore=useCallback(async function(){
+    if(!nextCursor)return;
+    setLoadingMore(true);
+    try{
+      var d=await ghlApi('GET','/conversations/search?locationId='+LOC+'&limit=100&startAfter='+encodeURIComponent(nextCursor));
+      var l=d.conversations||[];
+      setList(function(prev){
+        var combined=prev.concat(l);
+        setUnread(combined.filter(function(c){return c.unreadCount>0||c.unread;}).length);
+        return combined;
+      });
+      setNextCursor(d.meta?.nextCursor||d.meta?.startAfter||d.nextCursor||null);
+    }catch(e){setErr(e.message);}
+    setLoadingMore(false);
+  },[nextCursor]);
+
+  var loadAll=useCallback(async function(){
+    setLoadingAll(true);setErr('');
+    try{
+      var all=list.slice();
+      var cursor=nextCursor;
+      var safety=20;
+      while(cursor&&safety-->0){
+        var d=await ghlApi('GET','/conversations/search?locationId='+LOC+'&limit=100&startAfter='+encodeURIComponent(cursor));
+        var l=d.conversations||[];
+        all=all.concat(l);
+        cursor=d.meta?.nextCursor||d.meta?.startAfter||d.nextCursor||null;
+        if(!l.length)break;
+      }
+      setList(all);
+      setNextCursor(null);
+      setUnread(all.filter(function(c){return c.unreadCount>0||c.unread;}).length);
+    }catch(e){setErr(e.message);}
+    setLoadingAll(false);
+  },[list,nextCursor]);
+
+  var openThread=useCallback(async function(c){
+    setSel(c);setMsgs([]);setML(true);setSendSt('');
+    try{
+      // Fetch full conversation to ensure we have contactId
+      var cv=await ghlApi('GET','/conversations/'+c.id);
+      var full=cv.conversation||cv;
+      // Merge any extra fields (contactId etc.) back onto sel
+      setSel(function(prev){return Object.assign({},prev,{contactId:full.contactId||full.contact?.id||prev.contactId});});
+      var d=await ghlApi('GET','/conversations/'+c.id+'/messages?limit=30');
+      // GHL can return messages in multiple formats:
+      // { messages: { messages: [...] } } or { messages: [...] } or top-level array
+      var raw=[];
+      if(Array.isArray(d)){raw=d;}
+      else if(d.messages){
+        if(Array.isArray(d.messages)){raw=d.messages;}
+        else if(d.messages.messages&&Array.isArray(d.messages.messages)){raw=d.messages.messages;}
+        else{raw=Object.values(d.messages);}
+      }else if(d.conversations){raw=Array.isArray(d.conversations)?d.conversations:Object.values(d.conversations);}
+      setMsgs(raw.sort(function(a,b){return new Date(a.dateAdded)-new Date(b.dateAdded);}));
+    }catch(e){setMsgs([]);}
+    setML(false);
+  },[]);
+
+  useEffect(function(){if(endRef.current)endRef.current.scrollIntoView({behavior:'smooth'});},[msgs]);
+
+  async function sendMsg(){
+    if(!sel||!txt.trim())return;
+    setSending(true);setSendSt('');
+    try{
+      // GHL requires contactId — get it from the selected conversation
+      var contactId=sel.contactId||sel.contact?.id||null;
+      if(!contactId){
+        // Try fetching the conversation to get contactId if not already on the object
+        var cv=await ghlApi('GET','/conversations/'+sel.id);
+        contactId=(cv.conversation||cv).contactId||(cv.conversation||cv).contact?.id||null;
+      }
+      var payload={type:'SMS',conversationId:sel.id,message:txt.trim()};
+      if(contactId)payload.contactId=contactId;
+      await ghlApi('POST','/conversations/messages',payload);
+      setTxt('');setSendSt('ok');setTimeout(function(){openThread(sel);},900);
+    }catch(e){setSendSt('err:'+e.message);}
+    setSending(false);
+  }
+
+  var filtered=list.filter(function(c){
+    if(filter==='unread'&&!(c.unreadCount>0||c.unread))return false;
+    if(search&&!(c.contactName||c.id||'').toLowerCase().includes(search.toLowerCase()))return false;
+    return true;
+  });
+
+  var sp=h('div',{style:{width:11,height:11,border:'1.5px solid #c5cae9',borderTopColor:BL,borderRadius:'50%',animation:'spin .7s linear infinite',flexShrink:0}});
+
+  return h('div',{style:{display:'flex',flex:1,overflow:'hidden'}},
+    /* LIST PANE */
+    h('div',{style:{width:272,minWidth:272,borderRight:'1px solid #e8eaf0',display:'flex',flexDirection:'column',overflow:'hidden',background:'#fff'}},
+      h('div',{style:{padding:'9px 12px',borderBottom:'1px solid #e8eaf0',flexShrink:0}},
+        h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:7}},
+          h('span',{style:{fontSize:13,fontWeight:500,color:'#1a1a2e'}},'Conversations'),
+          h('button',{onClick:loadConvos,style:{fontSize:11,padding:'3px 8px',borderRadius:6,border:'1px solid #e8eaf0',background:'#f5f6fa',color:GR,cursor:'pointer',display:'flex',alignItems:'center',gap:4}},
+            loading?sp:'↺',loading?'Loading…':'Refresh')
+        ),
+        h('input',{value:search,onChange:function(e){setSearch(e.target.value);},placeholder:'Search contacts…',style:{width:'100%',fontSize:12,padding:'5px 9px',borderRadius:6,border:'1px solid #e8eaf0',background:'#f9fafb',color:'#1a1a2e',outline:'none',marginBottom:6}}),
+        h('div',{style:{display:'flex',gap:4}},
+          h('button',{onClick:function(){setFilter('all');},style:{fontSize:11,padding:'3px 9px',borderRadius:20,cursor:'pointer',border:'1px solid '+(filter==='all'?'#1a1a2e':'#e8eaf0'),background:filter==='all'?'#1a1a2e':'#fff',color:filter==='all'?'#fff':GR,fontWeight:500}},'All'+(list.length?' ('+list.length+')':'')),
+          h('button',{onClick:function(){setFilter('unread');},style:{fontSize:11,padding:'3px 9px',borderRadius:20,cursor:'pointer',border:'1px solid '+(filter==='unread'?RD:'#e8eaf0'),background:filter==='unread'?RD:'#fff',color:filter==='unread'?'#fff':GR,fontWeight:500}},unread>0?'Unread ('+unread+')':'Unread')
+        )
+      ),
+      list.length>0&&h('div',{style:{display:'flex',gap:8,padding:'5px 12px',background:'#fff',borderBottom:'1px solid #f5f6fa',flexShrink:0}},
+        h('span',{style:{fontSize:10,color:GR,display:'flex',alignItems:'center',gap:3}},h('div',{style:{width:5,height:5,borderRadius:'50%',background:GR}}),list.length+(total>list.length?' of '+total:'')+' loaded'),
+        unread>0&&h('span',{style:{fontSize:10,color:RD,display:'flex',alignItems:'center',gap:3}},h('div',{style:{width:5,height:5,borderRadius:'50%',background:RD}}),unread+' unread')
+      ),
+      err&&h('div',{style:{padding:'7px 12px',fontSize:11,color:RD,background:'#fff5f5',margin:'5px 12px',borderRadius:6}},'Error: '+err),
+      !loading&&list.length===0&&!err&&h('button',{onClick:loadConvos,style:{margin:'12px',padding:'8px 13px',borderRadius:6,border:'1px solid #e8eaf0',background:'#f9fafb',color:GR,fontSize:12,cursor:'pointer',fontWeight:500,textAlign:'center'}},'Load conversations →'),
+      loading&&h('div',{style:{display:'flex',alignItems:'center',gap:7,padding:'12px',color:GR,fontSize:12}},sp,'Loading conversations…'),
+      h('div',{style:{flex:1,overflowY:'auto'}},
+        filtered.length===0&&!loading&&list.length>0&&h('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:24,color:GR,gap:6}},
+          h('div',{style:{fontSize:24,opacity:.3}},filter==='unread'?'✓':'🔍'),
+          h('div',{style:{fontSize:12}},filter==='unread'?'No unread conversations':'No results')
+        ),
+        filtered.map(function(c){
+          var name=c.contactName||c.id||'Unknown';
+          var isU=c.unreadCount>0||c.unread;
+          var isSel=sel&&sel.id===c.id;
+          var ch=chInf(c.type);
+          return h('div',{key:c.id,onClick:function(){openThread(c);},style:{display:'flex',alignItems:'center',gap:8,padding:isU?'8px 12px 8px 14px':'8px 12px',borderBottom:'0.5px solid #f5f6fa',cursor:'pointer',background:isSel?'#eef2ff':'#fff',position:'relative'}},
+            isU&&h('div',{style:{width:6,height:6,borderRadius:'50%',background:RD,position:'absolute',left:4,top:'50%',transform:'translateY(-50%)'}}),
+            h('div',{style:{width:32,height:32,borderRadius:'50%',background:aColGHL(name),display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:600,color:'#fff',flexShrink:0}},iniGHL(name)),
+            h('div',{style:{flex:1,minWidth:0}},
+              h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:3}},
+                h('div',{style:{fontSize:12,fontWeight:isU?700:500,color:'#1a1a2e',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},name),
+                isU?h('span',{style:{fontSize:9,background:RD,color:'#fff',padding:'1px 5px',borderRadius:8,fontWeight:500,flexShrink:0}},c.unreadCount||'●'):h('span',{style:{fontSize:10,color:GR,flexShrink:0}},fmtRel(c.lastMessageDate))
+              ),
+              h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:1}},
+                h('div',{style:{fontSize:11,color:GR,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}},
+                  (c.lastMessageBody&&c.lastMessageBody.trim())
+                    ? c.lastMessageBody
+                    : (c.lastMessageType&&c.lastMessageType.toLowerCase().includes('call'))
+                      ? '📞 Phone call'
+                      : '📎 Attachment'
+                ),
+                isU&&h('span',{style:{fontSize:10,color:GR,flexShrink:0,marginLeft:4}},fmtRel(c.lastMessageDate))
+              ),
+              c.type&&h('span',{style:{fontSize:9,padding:'1px 5px',borderRadius:3,fontWeight:500,background:ch.bg,color:ch.c,marginTop:2,display:'inline-block'}},ch.l)
+            )
+          );
+        }),
+        /* LOAD MORE / LOAD ALL */
+        nextCursor&&!loadingMore&&!loadingAll&&h('div',{style:{padding:'8px 12px',borderTop:'1px solid #f5f6fa',display:'flex',gap:6}},
+          h('button',{onClick:loadMore,style:{flex:1,padding:'6px 10px',borderRadius:6,border:'1px solid #e8eaf0',background:'#f9fafb',color:GR,fontSize:11,cursor:'pointer',fontWeight:500}},'Load more (+100)'),
+          h('button',{onClick:loadAll,style:{flex:1,padding:'6px 10px',borderRadius:6,border:'1px solid #e8eaf0',background:'#f9fafb',color:BL,fontSize:11,cursor:'pointer',fontWeight:500}},'Load all →')
+        ),
+        (loadingMore||loadingAll)&&h('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',gap:7,padding:'10px 12px',color:GR,fontSize:11}},
+          sp,loadingAll?'Loading all conversations…':'Loading more…'
+        )
+      )
+    ),
+    /* THREAD PANE */
+    h('div',{style:{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',background:'#fff'}},
+      !sel
+        ?h('div',{style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:7,color:GR,padding:24}},
+            h('div',{style:{fontSize:28,opacity:.3}},'💬'),
+            h('div',{style:{fontSize:13,fontWeight:500,color:'#1a1a2e'}},'Select a conversation'),
+            h('div',{style:{fontSize:11,marginTop:3}},'Choose from the list to read and reply')
+          )
+        :h(React.Fragment,null,
+            h('div',{style:{padding:'10px 14px',borderBottom:'1px solid #e8eaf0',display:'flex',alignItems:'center',gap:8,flexShrink:0}},
+              h('div',{style:{width:33,height:33,borderRadius:'50%',background:aColGHL(sel.contactName||''),display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:600,color:'#fff',flexShrink:0}},iniGHL(sel.contactName||sel.id||'?')),
+              h('div',{style:{flex:1}},
+                h('div',{style:{fontSize:14,fontWeight:500,color:'#1a1a2e'}},sel.contactName||sel.id||'Unknown'),
+                h('div',{style:{fontSize:11,color:GR,marginTop:1}},(sel.type?chInf(sel.type).l+' conversation':'Conversation')+(sel.unreadCount>0?' · '+sel.unreadCount+' unread':''))
+              ),
+              sel.contactId&&h('a',{href:'https://app.gohighlevel.com/v2/location/'+LOC+'/contacts/detail/'+sel.contactId,target:'_blank',style:{fontSize:11,padding:'3px 9px',borderRadius:6,border:'1px solid #e8eaf0',background:'#f5f6fa',color:BL,textDecoration:'none',whiteSpace:'nowrap'}},'View in GHL →')
+            ),
+            h('div',{style:{flex:1,overflowY:'auto',padding:'10px 14px',display:'flex',flexDirection:'column',gap:7}},
+              mLoading&&h('div',{style:{display:'flex',justifyContent:'center',alignItems:'center',gap:7,paddingTop:20,color:GR,fontSize:12}},sp,'Loading…'),
+              !mLoading&&msgs.length===0&&h('div',{style:{textAlign:'center',color:GR,fontSize:12,paddingTop:20}},'No messages yet.'),
+              msgs.map(function(m,i){
+                var out=m.direction==='outbound';
+                // GHL stores message content in body — confirmed from debug raw
+                // Handle \n literal escape sequences from GHL API
+                var rawBody=m.body||m.text||m.content||
+                  (m.meta&&(m.meta.content||m.meta.body||m.meta.text||m.meta.message))||
+                  (m.contentAttributes&&(m.contentAttributes.content||m.contentAttributes.body))||
+                  m.message||m.html||'';
+                // Replace literal \n escape sequences with real newlines
+                var bodyText=rawBody?rawBody.replace(/\\n/g,'\n').replace(/\\t/g,'\t'):'';
+                // Strip HTML tags if present
+                if(bodyText&&bodyText.indexOf('<')>-1){
+                  var tmp=document.createElement('div');tmp.innerHTML=bodyText;bodyText=tmp.textContent||tmp.innerText||bodyText;
+                }
+                var attachments=m.attachments||(m.meta&&m.meta.attachments)||[];
+                var mediaUrl=m.mediaUrl||(m.meta&&m.meta.mediaUrl)||null;
+                var hasText=bodyText&&bodyText.trim().length>0;
+                var hasAttachments=Array.isArray(attachments)&&attachments.length>0;
+                // GHL uses numeric types: 1=SMS inbound, 2=SMS outbound, 3=Email, etc.
+                var msgType=m.messageType||m.type||'';
+                var typeLabel='';
+                if(!hasText&&!hasAttachments&&!mediaUrl){
+                  var tStr=String(msgType).toLowerCase();
+                  if(tStr==='4'||tStr.includes('call'))typeLabel='📞 Phone call';
+                  else if(tStr==='3'||tStr.includes('email'))typeLabel='📧 Email (no body)';
+                  else if(tStr.includes('voicemail'))typeLabel='📱 Voicemail';
+                  else if(tStr.includes('activity')||tStr.includes('note'))typeLabel='📋 Activity';
+                  else typeLabel='[type '+msgType+']';
+                }
+                return h('div',{key:m.id||i,style:{display:'flex',justifyContent:out?'flex-end':'flex-start'}},
+                  h('div',{style:{maxWidth:'72%',padding:'8px 12px',borderRadius:13,fontSize:13,lineHeight:1.5,wordBreak:'break-word',background:out?BL:'#f0f2f7',color:out?'#fff':'#1a1a2e',borderBottomRightRadius:out?3:13,borderBottomLeftRadius:out?13:3}},
+                    hasText&&h('div',{style:{whiteSpace:'pre-wrap'}},bodyText),
+                    mediaUrl&&h('div',{style:{marginTop:hasText?6:0}},
+                      h('a',{href:mediaUrl,target:'_blank',style:{color:out?'#b3c9ff':'#3b5bdb',fontSize:12,textDecoration:'underline'}},'📎 View attachment')
+                    ),
+                    hasAttachments&&h('div',{style:{marginTop:hasText?6:0,display:'flex',flexDirection:'column',gap:4}},
+                      attachments.map(function(att,ai){
+                        var attUrl=att.url||att.fileUrl||att.mediaUrl||(typeof att==='string'?att:'');
+                        var attName=att.name||att.fileName||att.title||'Attachment '+(ai+1);
+                        var isImg=attUrl&&/\.(jpg|jpeg|png|gif|webp)/i.test(attUrl);
+                        return h('div',{key:ai},
+                          isImg
+                            ?h('img',{src:attUrl,alt:attName,style:{maxWidth:'100%',borderRadius:6,display:'block'},onError:function(e){e.target.style.display='none';}})
+                            :h('a',{href:attUrl,target:'_blank',style:{color:out?'#b3c9ff':'#3b5bdb',fontSize:12,textDecoration:'underline'}},'📎 '+attName)
+                        );
+                      })
+                    ),
+                    !hasText&&!hasAttachments&&!mediaUrl&&h('div',{style:{color:out?'rgba(255,255,255,0.7)':'#9ca3af',fontSize:12,fontStyle:'italic'}},typeLabel),
+                    h('div',{style:{fontSize:10,opacity:.55,marginTop:4}},fmtFull(m.dateAdded))
+                  )
+                );
+              }),
+              h('div',{ref:endRef})
+            ),
+            sendSt==='ok'&&h('div',{style:{fontSize:11,padding:'5px 14px',background:'#f0fdf4',color:GN,borderTop:'1px solid #b2f2bb',flexShrink:0}},'✓ Message sent'),
+            sendSt.startsWith('err')&&h('div',{style:{fontSize:11,padding:'5px 14px',background:'#fff5f5',color:RD,borderTop:'1px solid #ffc9c9',flexShrink:0}},sendSt.replace('err:','')),
+            h('div',{style:{padding:'9px 14px',borderTop:'1px solid #e8eaf0',display:'flex',gap:7,alignItems:'flex-end',flexShrink:0}},
+              h('textarea',{value:txt,onChange:function(e){setTxt(e.target.value);},onKeyDown:function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();}},placeholder:'Type a message… (Enter to send)',rows:1,style:{flex:1,fontSize:13,padding:'7px 10px',borderRadius:6,border:'1px solid #e8eaf0',background:'#f9fafb',color:'#1a1a2e',outline:'none',resize:'none',minHeight:38,maxHeight:90,fontFamily:'inherit'}}),
+              h('button',{onClick:sendMsg,disabled:sending||!txt.trim(),style:{padding:'7px 14px',borderRadius:6,border:'none',background:sending||!txt.trim()?'#e8eaf0':BL,color:sending||!txt.trim()?GR:'#fff',fontSize:12,fontWeight:500,cursor:sending||!txt.trim()?'not-allowed':'pointer',flexShrink:0,minWidth:50}},
+                sending?sp:'Send'
+              )
+            )
+          )
+    )
+  );
+}
+
+/* ─── SOPs PAGE ─────────────────────────────────────────── */
+var SOP_DATA=[
+  /* ── ACQUISITION ── */
+  {pillar:"Acquisition",rel:"Sales",name:"Lead Generation & Tracking SOP",owner:"G",freq:"Daily",desc:"How leads are captured, tagged, and entered into the CRM from ads, content, and referrals. Every lead gets a row in the Leads Database with source, date, and status.",url:"https://www.notion.so/338b5ac429c681a4861bd61aff3f6927"},
+  {pillar:"Acquisition",rel:"Sales",name:"Ad Management SOP",owner:"G",freq:"Weekly",desc:"How Meta ads are set up, monitored, and optimised. Covers ad creation, budget rules, CPL targets, weekly review cadence, and the Ad Testing Log. Linked to the Booking Calls routine.",url:"https://www.notion.so/338b5ac429c681988484df8dbe89d8e6"},
+  {pillar:"Acquisition",rel:"Sales",name:"Post-Sales Call Handling & Follow-Up SOP",owner:"G",freq:"Daily",desc:"What happens immediately after every sales call — logging outcome, payment status, and follow-up actions. Covers closed, no-show, follow-up, and DNQ outcomes.",url:"https://www.notion.so/337b5ac429c68064aeeae7894d54ef9e"},
+  {pillar:"Acquisition",rel:"Sales",name:"Acquisition Health Monitoring SOP",owner:"G",freq:"Weekly",desc:"How LTV, CAC, and LTGP:CAC ratio are monitored weekly. Ensures ad spend decisions are data-driven. Feeds into the weekly Acquisition Review meeting.",url:"https://www.notion.so/338b5ac429c681b996c6c70dc015c8b1"},
+  {pillar:"Acquisition",rel:"Marketing",name:"Collecting Video Testimonials from Students",owner:"A",freq:"Ad hoc",desc:"How to request video testimonials after course completion. Includes outreach email template, timing, and where to store recordings.",url:"https://www.notion.so/321b5ac429c6804fb0ffe2b92e01e827"},
+  {pillar:"Acquisition",rel:"Marketing",name:"Community Management SOP",owner:"A",freq:"Weekly",desc:"How to manage the Kidda community — Facebook group, WhatsApp broadcasts, and engagement. Includes weekly posting cadence and community health tracking.",url:"https://www.notion.so/338b5ac429c6817bbfd8f0a0484ac08f"},
+  /* ── DELIVERY ── */
+  {pillar:"Delivery",rel:"Tutors",name:"Client Onboarding (Group)",owner:"A",freq:"Per cohort",desc:"Full onboarding flow from payment to first session. Covers GHL automation, WhatsApp group creation, Notion record creation, calendar invites, and welcome messages.",url:"https://www.notion.so/28cb5ac429c6807f8572fbea550f4133"},
+  {pillar:"Delivery",rel:"Tutors",name:"Beginner Course Offboarding Process",owner:"A",freq:"Per cohort",desc:"How to professionally close out students at the end of the Beginner Punjabi Course — farewell message, testimonial request, certificate, and offboarding record update.",url:"https://www.notion.so/321b5ac429c680ea8dadd1c9d2cd383b"},
+  {pillar:"Delivery",rel:"Tutors",name:"Chat Creation Welcome Messages (WhatsApp)",owner:"Ar",freq:"Per student",desc:"The exact first message tutors send to students after being added to their WhatsApp chat. Includes template and instructions for personalising.",url:"https://www.notion.so/320b5ac429c680a49345d69c39c708a3"},
+  {pillar:"Delivery",rel:"Tutors",name:"Pre-Session Morning Of Reminder Messages",owner:"Ar",freq:"Per session",desc:"What tutors send to students on the morning of their scheduled session. Includes message template, timing, and what to do if a student doesn't respond.",url:"https://www.notion.so/320b5ac429c680f0aef7cc84a72006db"},
+  {pillar:"Delivery",rel:"Tutors",name:"Assigning & Communicating Homework After Each Session",owner:"Ar",freq:"Per session",desc:"How tutors assign, communicate, and track homework. Covers message format, Lessons Log update, and what to do when a student doesn't submit.",url:"https://www.notion.so/2e8b5ac429c680d1a03be83050668bc3"},
+  {pillar:"Delivery",rel:"Tutors",name:"Updating the Admin Records After a Tutoring Session",owner:"Ar",freq:"Per session",desc:"Step-by-step for logging a completed session in the Lessons Log — attendance, homework score, learning relevance, and tutor notes.",url:"https://www.notion.so/2e8b5ac429c68095ac2bcc4adcffea7c"},
+  {pillar:"Delivery",rel:"Tutors",name:"Attendance & Homework Tracking SOP",owner:"G",freq:"Weekly",desc:"How attendance and homework completion are tracked at the cohort level. Weekly review process, dashboard update, and when to flag students as at-risk.",url:"https://www.notion.so/338b5ac429c681278582e2c7fb3af432"},
+  {pillar:"Delivery",rel:"Tutors",name:"Feedback & Quality Review SOP",owner:"G",freq:"Weekly",desc:"How student feedback is collected, reviewed, and acted upon. Covers the Feedback Database, critical feedback escalation, and quality improvement loop.",url:"https://www.notion.so/338b5ac429c681b0b7dae2f53a72d5e9"},
+  {pillar:"Delivery",rel:"Tutors",name:"Lighting, Camera, and Microphone quality",owner:"Ar",freq:"Ongoing",desc:"Technical setup standards for all tutors delivering online sessions. Covers equipment requirements, lighting setup, and pre-session checks.",url:"https://www.notion.so/2e7b5ac429c6801a97ffe14d88a67599"},
+  {pillar:"Delivery",rel:"Tutors",name:"Sending Calendar Invites",owner:"Ar",freq:"Per booking",desc:"How to send Google Calendar invites to students and team. Covers invite format, timezone settings, recurrence rules, and what to include in the description.",url:"https://www.notion.so/2e7b5ac429c6809e9af7f2bf66d97fff"},
+  {pillar:"Delivery",rel:"Tutors",name:"Viewing Google Calendar",owner:"Ar",freq:"Daily",desc:"How all team members should use Google Calendar — viewing others' availability, colour coding, and the no-double-booking rule.",url:"https://www.notion.so/2e7b5ac429c680ab83fbde7163ec09e2"},
+  {pillar:"Delivery",rel:"Tutors",name:"Finding & Using Course Materials",owner:"Ar",freq:"Ongoing",desc:"How to locate, access, and use course materials in Notion and Google Drive. Covers view vs edit permissions and version control rules.",url:"https://www.notion.so/2e8b5ac429c680ab9645f077a27810ec"},
+  /* ── OPERATIONS ── */
+  {pillar:"Operations",rel:"Sales",name:"Financial Management SOP",owner:"A",freq:"Weekly",desc:"How Kidda's finances are tracked — revenue, costs, and margins. Covers the weekly financial review, bank balance checks, and monthly report generation.",url:"https://www.notion.so/338b5ac429c6812dafd5f014fede6233"},
+  {pillar:"Operations",rel:"Sales",name:"Cost Management SOP",owner:"A",freq:"Weekly/Monthly",desc:"How costs are monitored and controlled. Covers fixed vs variable costs, the cost review cadence, and what triggers a cost reduction review.",url:"https://www.notion.so/338b5ac429c681bc932dd085060e9713"},
+  {pillar:"Operations",rel:"Sales",name:"Package Profitability SOP",owner:"G",freq:"Monthly",desc:"How to calculate and review profitability per package and course type. Covers revenue per student, delivery cost breakdown, and margin targets.",url:"https://www.notion.so/338b5ac429c6811ca81af17322e55eb4"},
+  {pillar:"Operations",rel:"Tutors",name:"Tutor Utilisation SOP",owner:"G",freq:"Weekly",desc:"How tutor hours are tracked and managed. 20hr weekly cap, utilisation % targets, and the process for reviewing over/under-utilisation.",url:"https://www.notion.so/338b5ac429c681dbb2c4d54835a1493b"},
+  {pillar:"Operations",rel:"Tutors",name:"Employee Onboarding process",owner:"G",freq:"Per hire",desc:"End-to-end onboarding for new team members — contracts, Notion access, Google Workspace setup, safeguarding training, and first-day meeting agenda.",url:"https://www.notion.so/2dcb5ac429c6808b9be3fcefc1abc794"},
+  {pillar:"Operations",rel:"Tutors",name:"Raising a Ticket (Issues, Feedback & Requests)",owner:"A",freq:"Ad hoc",desc:"How any team member raises an internal ticket for a system issue, process problem, or feature request. Covers the Notion ticket form and escalation path.",url:"https://www.notion.so/2e8b5ac429c680d8a999e395bd2a7fb9"},
+  /* ── AI / OS ── */
+  {pillar:"Operations",rel:"Sales",name:"🤖 AI Routine Review — Master Command Prompt",owner:"G",freq:"Daily",desc:"The master SOP that defines exactly what Claude does when you run \"review my routines\". Covers all 24 routine checks across Acquisition, Delivery, and Operations with RAG targets, database IDs, and output format.",url:"https://www.notion.so/339b5ac429c681819c7ffe14a3871663"},
+  /* ── OS PROCESSES (not yet in Notion) ── */
+  {pillar:"Acquisition",rel:"Sales",name:"📱 OS: Daily Standup Wizard",owner:"G",freq:"Daily",desc:"Claude reads your Notion routines, sales call log, tasks, and Gmail inbox each morning. Flags issues, sets the day's action plan, and logs the standup entry to Notion. Trigger: click Standup in the OS.",url:"https://www.notion.so/33ab5ac429c681919f13dd896d43b30b",os:true},
+  {pillar:"Operations",rel:"Sales",name:"📱 OS: EOD Debrief Wizard",owner:"G",freq:"Daily",desc:"Claude reviews closes, completed tasks, and carry-forwards at end of day. Logs the EOD debrief page to Notion with tomorrow's priorities. Trigger: click EOD in the OS.",url:"https://www.notion.so/33ab5ac429c6816e817fd0799fb25071",os:true},
+  {pillar:"Operations",rel:"Sales",name:"📱 OS: Email Triage Wizard",owner:"G",freq:"Daily",desc:"Claude scans Gmail for the last 24 hours, identifies action items, suggests archive candidates, and captures any new tasks. Trigger: click Emails in the OS.",url:"https://mail.google.com/mail/u/0/#starred",os:true},
+  {pillar:"Acquisition",rel:"Sales",name:"📱 OS: Update Call Log Wizard",owner:"G",freq:"Daily",desc:"Claude cross-checks booking confirmation emails in Gmail against the Notion Sales Call Log, flags missing entries, and reviews today's call outcomes. Trigger: click Call log in the OS.",url:"https://www.notion.so/293b5ac429c680d09f48c5833fd1ea1b",os:true},
+  {pillar:"Acquisition",rel:"Sales",name:"📱 OS: Reply Inbox Wizard",owner:"G",freq:"Daily",desc:"Claude fetches unread GHL conversations, reads message history, searches Fathom meeting notes for context, and generates personalised replies. You approve/edit/skip/reject each one before sending. Trigger: click Reply inbox in the OS.",url:"https://www.notion.so/2b8b5ac429c680ec9a26ca7da5a07f11",os:true},
+  {pillar:"Operations",rel:"Sales",name:"📱 OS: Schedule Tasks",owner:"G",freq:"Ad hoc",desc:"The OS reads your Google Calendar free slots (8am–5pm, protecting Deep Work and meetings) and auto-assigns each open task to the best available slot. Confirm or edit slot suggestions before committing. Trigger: click Schedule tasks in Calendar or Tasks page.",url:"https://www.notion.so/289b5ac429c680d08a23cfe5feb243b7",os:true},
+  {pillar:"Operations",rel:"Sales",name:"📱 OS: Data Check",owner:"G",freq:"Ad hoc",desc:"Claude runs a live cross-check of emails and key databases to surface anything missing, inconsistent, or overdue — missing call log entries, unpaid balances, unlogged sessions. Trigger: click Data check in the topbar.",url:"https://www.notion.so/289b5ac429c680558ebae6ace6802b42",os:true},
+];
+
+function SOPsPage(){
+  var[pilFilt,setPilFilt]=useState("all");
+  var[relFilt,setRelFilt]=useState("all");
+  var[osFilt,setOsFilt]=useState("all");
+  var[search,setSearch]=useState("");
+
+  var filtered=SOP_DATA.filter(function(s){
+    if(pilFilt!=="all"&&s.pillar!==pilFilt)return false;
+    if(relFilt!=="all"&&s.rel!==relFilt)return false;
+    if(osFilt==="os"&&!s.os)return false;
+    if(osFilt==="notion"&&s.os)return false;
+    if(search){var q=search.toLowerCase();if(s.name.toLowerCase().indexOf(q)<0&&s.desc.toLowerCase().indexOf(q)<0)return false;}
+    return true;
+  });
+
+  var pillarCol={Acquisition:BL,Operations:AM,Delivery:GN};
+  var pillarBg={Acquisition:"#eef2ff",Operations:"#fff8e1",Delivery:"#f0fdf4"};
+
+  function filterBtn(val,cur,set,label,col,bg){
+    var on=cur===val;
+    return h('button',{onClick:function(){set(val);},style:{fontSize:10,padding:"3px 10px",borderRadius:20,cursor:"pointer",border:"1px solid "+(on?(col||"#1a1a2e"):"#e8eaf0"),background:on?(bg||"#1a1a2e"):"#fff",color:on?(col?"#fff":"#fff"):GR,fontWeight:500}},label);
+  }
+
+  return h('div',{style:{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}},
+    h('div',{style:{padding:"10px 14px",background:"#fff",borderBottom:"1px solid #e8eaf0",flexShrink:0}},
+      h('div',{style:{display:"flex",gap:5,flexWrap:"wrap",marginBottom:7}},
+        h('span',{style:{fontSize:10,color:GR,lineHeight:"24px"}},"Pillar:"),
+        filterBtn("all",pilFilt,setPilFilt,"All"),
+        filterBtn("Acquisition",pilFilt,setPilFilt,"Acquisition","#3b5bdb","#3b5bdb"),
+        filterBtn("Operations",pilFilt,setPilFilt,"Operations",AM,AM),
+        filterBtn("Delivery",pilFilt,setPilFilt,"Delivery",GN,GN),
+        h('span',{style:{fontSize:10,color:GR,lineHeight:"24px",marginLeft:6}},"Type:"),
+        filterBtn("all",osFilt,setOsFilt,"All"),
+        filterBtn("os",osFilt,setOsFilt,"📱 OS Processes"),
+        filterBtn("notion",osFilt,setOsFilt,"📄 Notion SOPs"),
+        h('div',{style:{marginLeft:"auto",display:"flex",gap:6,alignItems:"center"}},
+          h('input',{value:search,onChange:function(e){setSearch(e.target.value);},placeholder:"Search SOPs…",style:{fontSize:11,padding:"4px 9px",borderRadius:6,border:"1px solid #e8eaf0",background:"#f9fafb",color:"#1a1a2e",outline:"none",width:160}}),
+          h('a',{href:"https://www.notion.so/28cb5ac429c68011868bf6abc4f214f5",target:"_blank",style:{fontSize:11,padding:"4px 9px",borderRadius:6,border:"1px solid #e8eaf0",background:"#fff",color:BL,fontWeight:500,textDecoration:"none"}},"Notion Master SOP DB →")
+        )
+      ),
+      h('div',{style:{fontSize:11,color:GR}},filtered.length+" of "+SOP_DATA.length+" SOPs")
+    ),
+    h('div',{style:{flex:1,overflow:"auto",padding:"10px 14px"}},
+      ["Acquisition","Operations","Delivery"].filter(function(p){return pilFilt==="all"||pilFilt===p;}).map(function(pillar){
+        var sopList=filtered.filter(function(s){return s.pillar===pillar;});
+        if(!sopList.length)return null;
+        return h('div',{key:pillar,style:{marginBottom:20}},
+          h('div',{style:{display:"flex",alignItems:"center",gap:8,marginBottom:8}},
+            h('div',{style:{width:8,height:8,borderRadius:"50%",background:pillarCol[pillar],flexShrink:0}}),
+            h('div',{style:{fontSize:13,fontWeight:600,color:"#1a1a2e"}}),
+            h('span',{style:{fontSize:13,fontWeight:600,color:"#1a1a2e"}},pillar),
+            h('span',{style:{fontSize:11,color:GR}},"— "+sopList.length+" SOPs")
+          ),
+          h('div',{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:8}},
+            sopList.map(function(sop,i){
+              var pc=pillarCol[sop.pillar],pb=pillarBg[sop.pillar];
+              var ownerT=TM[sop.owner];
+              return h('div',{key:i,style:{background:"#fff",border:"1px solid #e8eaf0",borderRadius:8,padding:"11px 13px",display:"flex",flexDirection:"column",gap:6,borderLeft:"3px solid "+pc}},
+                h('div',{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:6}},
+                  h('div',{style:{fontSize:12,fontWeight:500,color:"#1a1a2e",lineHeight:1.4,flex:1}},sop.name),
+                  sop.os&&h('span',{style:{fontSize:9,padding:"2px 5px",borderRadius:3,background:"#f3f0ff",color:"#6741d9",fontWeight:500,flexShrink:0}},"OS")
+                ),
+                h('div',{style:{fontSize:11,color:GR,lineHeight:1.6}},sop.desc),
+                h('div',{style:{display:"flex",alignItems:"center",gap:6,marginTop:2}},
+                  h('span',{style:{fontSize:9,padding:"2px 6px",borderRadius:3,background:pb,color:pc,fontWeight:500}},sop.pillar),
+                  h('span',{style:{fontSize:9,padding:"2px 6px",borderRadius:3,background:"#f5f6fa",color:GR,fontWeight:500}},sop.rel),
+                  h('span',{style:{fontSize:9,padding:"2px 6px",borderRadius:3,background:"#f5f6fa",color:GR}},sop.freq),
+                  ownerT&&h('div',{style:{marginLeft:"auto",display:"flex",alignItems:"center",gap:4}},
+                    h('div',{style:{width:14,height:14,borderRadius:"50%",background:ownerT.bg,border:"1px solid "+ownerT.col,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:500,color:ownerT.col}},ownerT.id),
+                    h('span',{style:{fontSize:9,color:GR}},ownerT.name)
+                  )
+                ),
+                h('a',{href:sop.url,target:"_blank",style:{fontSize:10,color:BL,fontWeight:500,textDecoration:"none",marginTop:2}},"Open "+(sop.os?"in Claude.ai →":"in Notion →"))
+              );
+            })
+          )
+        );
+      })
+    )
+  );
+}
+
+/* ─── DAILY ACTION PANEL — Claude runs inline ──────────── */
+var PANEL_CFG={
+  standup:{
+    color:BL,icon:"📋",label:"Daily Standup",
+    subtitle:"Morning briefing — pulls live data from Notion, Gmail and Calendar",
+    systemPrompt:"You are the Kidda Business OS assistant. You are running the Daily Standup for Gurupma Singh, founder of Kidda (Punjabi tutoring company). Today is Monday 6 April 2026. Your job is to produce a crisp morning briefing. Use the data provided and structure your response with: 1) 🔴🟡🟢 RAG status per pillar (Acquisition / Delivery / Operations), 2) Key numbers from the sales call log and routines, 3) Today's priority actions (max 5), 4) Any flags or blockers. Be direct and concise — this is a standup, not an essay. End with a one-line motivational close.",
+    userPrompt:function(ctx){return "Run my daily standup for today Monday 6 April 2026.\n\nHere is my current data:\n\nROUTINES STATUS:\n"+ctx.routines+"\n\nOPEN TASKS ("+ctx.taskCount+" open):\n"+ctx.tasks+"\n\nTODAY'S CALENDAR:\n"+ctx.calendar+"\n\nRecent closes: 2 today — Simranjeet Duhra £400, Sharan Matharu £400 (both Beginners Course, Group).\n\nGive me a sharp morning briefing with RAG status per pillar, today's top 3-5 actions, and any flags.";},
+    notionUrl:"https://www.notion.so/2a4b5ac429c680e180cbe01ff5c614b0",
+    gather:async function(){
+      var routineText=ROUTINES.map(function(r){return r.n+" — "+r.s+" ("+r.a+")"}).join("\n");
+      var taskText=TASKS_INIT.filter(function(t){return t.st!=="Done";}).map(function(t){return"• "+t.n+" ["+t.pr+"] due "+t.due;}).join("\n");
+      var calText=EVENTS.filter(function(e){return e.d==="06"&&e.cal==="G";}).map(function(e){return m2t(e.s)+"-"+m2t(e.e)+" "+e.ti;}).join("\n");
+      return{routines:routineText,tasks:taskText,taskCount:TASKS_INIT.filter(function(t){return t.st!=="Done";}).length,calendar:calText};
+    },
+    actions:[
+      {label:"Log to Notion",icon:"📄",color:BL,fn:function(){window.open("https://www.notion.so/2a4b5ac429c680e180cbe01ff5c614b0","_blank");}},
+    ]
+  },
+  eod:{
+    color:"#6741d9",icon:"🌙",label:"EOD Debrief",
+    subtitle:"End-of-day review — recaps closes, tasks and sets tomorrow's priorities",
+    systemPrompt:"You are the Kidda Business OS assistant running the EOD Debrief for Gurupma Singh. Today is Monday 6 April 2026. Produce a clean end-of-day debrief with: 1) Wins of the day, 2) Tasks completed vs carried forward, 3) Tomorrow's top 3 priorities, 4) Any outstanding items needing attention before tomorrow. Be concise and forward-looking.",
+    userPrompt:function(ctx){return"Run my EOD debrief for today Monday 6 April 2026.\n\nTODAY'S CLOSES:\n"+ctx.closes+"\n\nTASKS STATUS:\n"+ctx.tasks+"\n\nTOMORROW'S CALENDAR:\n"+ctx.tomorrow+"\n\nGive me a clean debrief with wins, carry-forwards, and tomorrow's top priorities.";},
+    notionUrl:"https://www.notion.so/33ab5ac429c6816e817fd0799fb25071",
+    gather:async function(){
+      var closes="2 closes — Simranjeet Duhra £400 (Beginners, Group), Sharan Matharu £400 (Beginners, Group). Total: £800.";
+      var tasks=TASKS_INIT.map(function(t){return"• "+t.n+" — "+t.st+" ["+t.pr+"]";}).join("\n");
+      var tomorrow=EVENTS.filter(function(e){return e.d==="07"&&e.cal==="G";}).map(function(e){return m2t(e.s)+" "+e.ti;}).join(", ");
+      return{closes:closes,tasks:tasks,tomorrow:tomorrow};
+    },
+    actions:[
+      {label:"Log to Notion",icon:"📄",color:"#6741d9",fn:function(){window.open("https://www.notion.so/33ab5ac429c6816e817fd0799fb25071","_blank");}},
+    ]
+  },
+  emails:{
+    color:AM,icon:"📧",label:"Email Triage",
+    subtitle:"Scans your Gmail inbox and surfaces what needs action",
+    systemPrompt:"You are the Kidda Business OS assistant running Email Triage for Gurupma Singh. Scan the email subjects/senders provided and categorise each one as: ACTION NEEDED / REPLY NEEDED / FYI (read + archive) / IGNORE. For any action or reply needed, suggest a one-line response or next step. Be brief — this is a triage, not a full reply drafting session.",
+    userPrompt:function(ctx){return"Triage my emails from the last 24 hours.\n\nEMAILS:\n"+ctx.emails+"\n\nFor each, tell me: keep/action/reply/archive and a one-line suggested next step if needed.";},
+    notionUrl:"https://mail.google.com/mail/u/0/#inbox",
+    gather:async function(){
+      try{
+        var resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:200,messages:[{role:"user",content:"Return ONLY this JSON (no markdown): {\"emails\": \"No email data available — Gmail not connected to this artifact. Use the Gmail link below to check your inbox directly.\"}"}]})});
+        var d=await resp.json();
+        return{emails:"[Live Gmail data loads here — see instructions below]"};
+      }catch(e){return{emails:"Unable to fetch — see Gmail link below"};}
+    },
+    actions:[
+      {label:"Open Gmail",icon:"📬",color:AM,fn:function(){window.open("https://mail.google.com/mail/u/0/#inbox","_blank");}},
+    ]
+  },
+  calllog:{
+    color:GN,icon:"📞",label:"Update Call Log",
+    subtitle:"Cross-checks booking emails vs Notion sales call log",
+    systemPrompt:"You are the Kidda Business OS assistant running the Call Log update for Gurupma Singh at Kidda. Review the sales call data provided and: 1) List any calls from today that aren't yet logged, 2) Flag any entries missing key fields (outcome, payment status), 3) Summarise today's call performance. Be specific and action-oriented.",
+    userPrompt:function(ctx){return"Update my sales call log for today Monday 6 April 2026.\n\nTODAY'S CALENDAR CALLS:\n"+ctx.calCalls+"\n\nKNOWN OUTCOMES:\n"+ctx.outcomes+"\n\nCheck for any missing log entries and flag what needs to be updated in Notion.";},
+    notionUrl:"https://www.notion.so/293b5ac429c680d09f48c5833fd1ea1b",
+    gather:async function(){
+      var calCalls=EVENTS.filter(function(e){return e.d==="06"&&e.ty==="sales";}).map(function(e){return m2t(e.s)+" — "+e.ti;}).join("\n");
+      var outcomes="Simranjeet Duhra 13:00 — CLOSED £400 Beginners Group. Aman Badwal 14:00 — outcome unknown, follow-up needed.";
+      return{calCalls:calCalls||"No sales calls on calendar for today",outcomes:outcomes};
+    },
+    actions:[
+      {label:"Open Call Log",icon:"📊",color:GN,fn:function(){window.open("https://www.notion.so/293b5ac429c680d09f48c5833fd1ea1b","_blank");}},
+    ]
+  },
+  "reply-inbox":{
+    color:"#e03131",icon:"💬",label:"Reply Inbox",
+    subtitle:"Reads unread GHL conversations and drafts personalised replies",
+    systemPrompt:"You are the Kidda Business OS assistant handling the Reply Inbox for Gurupma Singh at Kidda (Punjabi tutoring). You have access to unread GHL conversations. For each unread conversation, draft a warm, professional, personalised reply that matches Kidda's tone — friendly but focused on progress toward booking or continuing their Punjabi journey. Keep replies concise (2-4 sentences). Format each as:\n\n**[Contact Name]** — Last message: [their last message]\nSuggested reply: [your draft]\n---",
+    userPrompt:function(ctx){return"Draft replies for my unread GHL conversations.\n\nUNREAD CONVERSATIONS:\n"+ctx.convos+"\n\nFor each, write a personalised reply I can approve and send. Kidda tone: warm, encouraging, focused on the student's progress.";},
+    notionUrl:"https://www.notion.so/2b8b5ac429c680ec9a26ca7da5a07f11",
+    gather:async function(){
+      try{
+        var d=await(await fetch("https://services.leadconnectorhq.com/conversations/search?locationId=HCTgQkfPpkO6GkhxWGj6&limit=20&status=unread",{headers:{"Authorization":"Bearer pit-a5ad276b-179c-4a79-a0e1-aa7803b7c094","Version":"2021-04-15"}})).json();
+        var convos=(d.conversations||[]).slice(0,8).map(function(c){return"• "+c.contactName+" — last: "+(c.lastMessageBody||"").slice(0,120);}).join("\n");
+        return{convos:convos||"No unread conversations found"};
+      }catch(e){return{convos:"[GHL API — live data loads here]"};}
+    },
+    actions:[
+      {label:"Open GHL",icon:"💬",color:"#e03131",fn:function(){window.open("https://app.gohighlevel.com","_blank");}},
+      {label:"Open Conversations",icon:"📱",color:"#e03131",fn:function(){/* handled inline */;}},
+    ]
+  }
+};
+
+function DailyActionPanel(props){
+  var page=props.page;
+  var cfg=PANEL_CFG[page];
+  if(!cfg)return null;
+
+  var[status,setStatus]=useState("idle"); /* idle | loading | done | error */
+  var[output,setOutput]=useState("");
+  var[userEdit,setUserEdit]=useState("");
+  var[editMode,setEditMode]=useState(false);
+
+  async function runPanel(){
+    setStatus("loading");setOutput("");setEditMode(false);
+    try{
+      var ctx=await cfg.gather();
+      var userMsg=cfg.userPrompt(ctx);
+      var resp=await fetch("https://api.anthropic.com/v1/messages",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          model:"claude-sonnet-4-20250514",
+          max_tokens:1000,
+          system:cfg.systemPrompt,
+          messages:[{role:"user",content:userMsg}]
+        })
+      });
+      var data=await resp.json();
+      if(data.error){setStatus("error");setOutput("API error: "+data.error.message);return;}
+      var text=(data.content||[]).map(function(b){return b.text||"";}).join("");
+      setOutput(text);setUserEdit(text);setStatus("done");
+    }catch(e){setStatus("error");setOutput("Error: "+e.message);}
+  }
+
+  return h('div',{style:{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}},
+    /* header */
+    h('div',{style:{padding:"12px 16px",background:"#fff",borderBottom:"1px solid #e8eaf0",display:"flex",alignItems:"center",gap:12,flexShrink:0}},
+      h('div',{style:{width:34,height:34,borderRadius:8,background:cfg.color+"18",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}},cfg.icon),
+      h('div',{style:{flex:1,minWidth:0}},
+        h('div',{style:{fontSize:14,fontWeight:600,color:"#1a1a2e"}},cfg.label),
+        h('div',{style:{fontSize:11,color:GR,marginTop:1}},cfg.subtitle)
+      ),
+      status==="idle"&&h('button',{onClick:runPanel,style:{padding:"8px 18px",borderRadius:7,border:"none",background:cfg.color,color:"#fff",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6}},
+        h('svg',{viewBox:"0 0 20 20",fill:"currentColor",width:14,height:14},h('path',{d:"M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"})),
+        "Run now"
+      ),
+      status==="loading"&&h('div',{style:{display:"flex",alignItems:"center",gap:7,fontSize:12,color:cfg.color}},
+        h('div',{style:{width:14,height:14,border:"2px solid "+cfg.color,borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.7s linear infinite"}}),
+        "Running…"
+      ),
+      status==="done"&&h('div',{style:{display:"flex",gap:6}},
+        h('button',{onClick:runPanel,style:{padding:"6px 12px",borderRadius:6,border:"1px solid #e8eaf0",background:"#fff",color:GR,fontSize:11,cursor:"pointer"}},"↺ Re-run"),
+        h('a',{href:cfg.notionUrl,target:"_blank",style:{padding:"6px 12px",borderRadius:6,border:"1px solid #e8eaf0",background:"#fff",color:BL,fontSize:11,textDecoration:"none",fontWeight:500}},"Notion →")
+      ),
+      status==="error"&&h('button',{onClick:runPanel,style:{padding:"6px 12px",borderRadius:6,border:"1px solid #e8eaf0",background:"#fff",color:RD,fontSize:11,cursor:"pointer"}},"↺ Retry")
+    ),
+
+    /* body */
+    h('div',{style:{flex:1,overflow:"auto",padding:14,display:"flex",flexDirection:"column",gap:10}},
+
+      /* idle state */
+      status==="idle"&&h('div',{style:{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flex:1,gap:16,padding:"20px 0"}},
+        h('div',{style:{fontSize:40}},cfg.icon),
+        h('div',{style:{fontSize:15,fontWeight:500,color:"#1a1a2e"}},"Ready to run "+cfg.label),
+        h('div',{style:{fontSize:12,color:GR,maxWidth:340,textAlign:"center",lineHeight:1.7}},cfg.subtitle),
+        h('button',{onClick:runPanel,style:{padding:"12px 32px",borderRadius:8,border:"none",background:cfg.color,color:"#fff",fontWeight:600,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",gap:8,marginTop:4}},
+          h('svg',{viewBox:"0 0 20 20",fill:"currentColor",width:16,height:16},h('path',{d:"M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"})),
+          "Run "+cfg.label
+        ),
+        h('div',{style:{display:"flex",gap:8,marginTop:4}},
+          cfg.actions.filter(function(a){return a.label!=="Open Conversations";}).map(function(a,i){
+            return h('button',{key:i,onClick:a.fn,style:{padding:"7px 14px",borderRadius:6,border:"1px solid #e8eaf0",background:"#fff",color:a.color,fontSize:11,cursor:"pointer",fontWeight:500}},a.icon+" "+a.label);
+          })
+        )
+      ),
+
+      /* loading state */
+      status==="loading"&&h('div',{style:{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flex:1,gap:12}},
+        h('div',{style:{width:32,height:32,border:"3px solid "+cfg.color,borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.7s linear infinite"}}),
+        h('div',{style:{fontSize:13,color:cfg.color,fontWeight:500}},"Claude is reading your live data…"),
+        h('div',{style:{fontSize:11,color:GR}},"Checking Notion, Calendar and connected tools")
+      ),
+
+      /* output state */
+      status==="done"&&h('div',{style:{display:"flex",flexDirection:"column",gap:10}},
+        /* output card */
+        h('div',{style:{background:"#fff",border:"1px solid #e8eaf0",borderRadius:8,overflow:"hidden"}},
+          h('div',{style:{padding:"9px 13px",borderBottom:"1px solid #f0f2f7",display:"flex",alignItems:"center",justifyContent:"space-between"}},
+            h('div',{style:{fontSize:12,fontWeight:600,color:"#1a1a2e"}},cfg.icon+" "+cfg.label+" output"),
+            h('div',{style:{display:"flex",gap:6}},
+              h('button',{onClick:function(){setEditMode(!editMode);},style:{fontSize:10,padding:"3px 8px",borderRadius:4,border:"1px solid #e8eaf0",background:editMode?"#eef2ff":"#fff",color:editMode?BL:GR,cursor:"pointer"}},editMode?"✕ Cancel edit":"✏️ Edit"),
+              h('button',{onClick:function(){navigator.clipboard&&navigator.clipboard.writeText(editMode?userEdit:output);},style:{fontSize:10,padding:"3px 8px",borderRadius:4,border:"1px solid #e8eaf0",background:"#fff",color:GR,cursor:"pointer"}},"📋 Copy")
+            )
+          ),
+          editMode
+            ?h('textarea',{value:userEdit,onChange:function(e){setUserEdit(e.target.value);},style:{width:"100%",minHeight:220,padding:"12px 14px",fontSize:12,lineHeight:1.7,border:"none",outline:"none",resize:"vertical",fontFamily:"inherit",color:"#1a1a2e",boxSizing:"border-box"}})
+            :h('div',{style:{padding:"12px 14px",fontSize:12,color:"#1a1a2e",lineHeight:1.8,whiteSpace:"pre-wrap"}},output)
+        ),
+        /* action buttons */
+        h('div',{style:{display:"flex",gap:8,flexWrap:"wrap"}},
+          cfg.actions.filter(function(a){return a.label!=="Open Conversations";}).map(function(a,i){
+            return h('button',{key:i,onClick:a.fn,style:{padding:"8px 16px",borderRadius:7,border:"none",background:a.color,color:"#fff",fontSize:12,cursor:"pointer",fontWeight:500}},a.icon+" "+a.label);
+          }),
+          h('a',{href:cfg.notionUrl,target:"_blank",style:{padding:"8px 16px",borderRadius:7,border:"1px solid #e8eaf0",background:"#fff",color:"#1a1a2e",fontSize:12,cursor:"pointer",fontWeight:500,textDecoration:"none"}},"📄 View in Notion")
+        )
+      ),
+
+      /* error state */
+      status==="error"&&h('div',{style:{background:"#fff5f5",border:"1px solid #ffc9c9",borderRadius:8,padding:"14px 16px",fontSize:12,color:RD,lineHeight:1.7}},
+        h('div',{style:{fontWeight:600,marginBottom:6}},"⚠️ Couldn't run this panel"),
+        h('div',{style:{color:GR,marginBottom:10}},output),
+        h('div',{style:{color:"#1a1a2e"}},"This panel uses the Anthropic API. Make sure you're running this from claude.ai where the API is connected, or use the Notion link below to run manually."),
+        h('div',{style:{marginTop:10,display:"flex",gap:8}},
+          h('button',{onClick:runPanel,style:{padding:"7px 14px",borderRadius:6,border:"none",background:cfg.color,color:"#fff",fontSize:11,cursor:"pointer"}},"↺ Retry"),
+          h('a',{href:cfg.notionUrl,target:"_blank",style:{padding:"7px 14px",borderRadius:6,border:"1px solid #e8eaf0",background:"#fff",color:BL,fontSize:11,textDecoration:"none"}},cfg.label==="Email Triage"?"Open Gmail →":"Open in Notion →")
+        )
+      )
+    )
+  );
+}
+
+/* ─── MAIN APP ──────────────────────────────────────────── */
+function App(){
+  var[page,setPage]=useState("dashboard");
+  var[tl,setTl]=useState("today");
+  var[pillar,setPillar]=useState("all");
+  var[rFilt,setRFilt]=useState("all");
+  var[tasks,setTasks]=useState(TASKS_INIT);
+
+  var d=TL_DATA[tl]||TL_DATA.today;
+  var openTasks=tasks.filter(function(t){return t.st!=="Done";});
+  var isWiz=["standup","eod","emails","calllog","reply-inbox"].includes(page);
+
+  var rts=ROUTINES.filter(function(r){
+    return(pillar==="all"||(pillar==="acq"&&r.a==="Acquisition")||(pillar==="ops"&&r.a==="Operations")||(pillar==="del"&&r.a==="Delivery"))&&(rFilt==="all"||r.s===rFilt);
+  });
+
+  function SbBtn(id,label,badge,badgeRed,iconSvg){
+    return h('button',{key:id,onClick:function(){setPage(id);},style:{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:7,color:page===id?BL:GR,marginBottom:1,border:"none",background:page===id?"#eef2ff":"none",width:"100%",textAlign:"left",fontSize:12,fontWeight:page===id?500:400,cursor:"pointer"}},
+      h('span',{style:{width:13,height:13,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}},iconSvg),
+      label,
+      badge!=null&&h('span',{style:{marginLeft:"auto",background:badgeRed?RD:BL,color:"#fff",fontSize:9,fontWeight:500,padding:"1px 5px",borderRadius:8}},badge)
+    );
+  }
+
+  function ic(d_){return h('svg',{viewBox:"0 0 20 20",fill:"none",stroke:"currentColor",strokeWidth:1.5,width:13,height:13},d_.map(function(p,i){return h('path',{key:i,d:p});}));}
+
+  var pageLabels={dashboard:"Welcome back, Gurupma",calendar:"Calendar","db-tasks":"Tasks","db-sales":"Sales Call Log","db-routines":"Routines",conversations:"GHL Conversations",standup:"Daily standup",eod:"EOD debrief",emails:"Email triage",calllog:"Update call log","reply-inbox":"Reply inbox",sops:"SOPs & Processes"};
+
+  return h('div',{style:{display:"flex",width:"100%",maxWidth:1260,height:700,background:"#f0f2f7",borderRadius:12,overflow:"hidden",boxShadow:"0 4px 24px rgba(0,0,0,0.08)"}},
+
+    /* ── SIDEBAR ── */
+    h('div',{style:{width:190,minWidth:190,background:"#fff",borderRight:"1px solid #e8eaf0",display:"flex",flexDirection:"column",padding:"16px 0"}},
+      h('div',{style:{display:"flex",alignItems:"center",gap:8,padding:"0 14px 18px"}},
+        h('div',{style:{width:28,height:28,background:BL,borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},
+          h('svg',{viewBox:"0 0 20 20",fill:"#fff",width:14,height:14},h('path',{d:"M10 2L2 7l8 5 8-5-8-5zM2 13l8 5 8-5M2 10l8 5 8-5"}))
+        ),
+        h('div',{style:{fontSize:13,fontWeight:500,color:"#1a1a2e",lineHeight:1.1}},"Kidda",h('span',{style:{display:"block",fontSize:10,fontWeight:400,color:GR}},"Business OS"))
+      ),
+      h('div',{style:{padding:"0 8px",flex:1,overflowY:"auto"}},
+        h('div',{style:{fontSize:9,fontWeight:500,color:"#c5cae9",textTransform:"uppercase",letterSpacing:".07em",padding:"6px 8px 3px"}},"Overview"),
+        SbBtn("dashboard","Dashboard",null,false,h('svg',{viewBox:"0 0 20 20",fill:"currentColor",width:13,height:13},h('rect',{x:2,y:2,width:7,height:7,rx:1}),h('rect',{x:11,y:2,width:7,height:7,rx:1}),h('rect',{x:2,y:11,width:7,height:7,rx:1}),h('rect',{x:11,y:11,width:7,height:7,rx:1}))),
+        SbBtn("calendar","Calendar",null,false,ic(["M3 4h14a1 1 0 011 1v11a1 1 0 01-1 1H3a1 1 0 01-1-1V5a1 1 0 011-1z","M7 2v4M13 2v4M3 9h14"])),
+        h('div',{style:{fontSize:9,fontWeight:500,color:"#c5cae9",textTransform:"uppercase",letterSpacing:".07em",padding:"8px 8px 3px"}},"Databases"),
+        SbBtn("db-tasks","Tasks",openTasks.length,false,ic(["M4 6h12M4 10h12M4 14h6"])),
+        SbBtn("db-sales","Sales Call Log",6,false,ic(["M3 17L7 11l4 3 4-6 2 4"])),
+        SbBtn("db-routines","Routines",5,true,ic(["M9 11l3 3 6-6","M4 4h12a1 1 0 011 1v11a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z"])),
+        h('div',{style:{fontSize:9,fontWeight:500,color:"#c5cae9",textTransform:"uppercase",letterSpacing:".07em",padding:"8px 8px 3px"}},"CRM"),
+        SbBtn("conversations","Conversations",null,false,ic(["M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"])),
+        h('div',{style:{fontSize:9,fontWeight:500,color:"#c5cae9",textTransform:"uppercase",letterSpacing:".07em",padding:"8px 8px 3px"}},"Daily actions"),
+        SbBtn("standup","Standup",null,false,ic(["M3 4h14a1 1 0 011 1v11a1 1 0 01-1 1H3a1 1 0 01-1-1V5a1 1 0 011-1z","M7 2v4M13 2v4M3 9h14"])),
+        SbBtn("eod","EOD",null,false,ic(["M10 3v7l4 2","M10 3a7 7 0 100 14A7 7 0 0010 3z"])),
+        SbBtn("emails","Emails",null,false,ic(["M2 5h16a1 1 0 011 1v9a1 1 0 01-1 1H2a1 1 0 01-1-1V6a1 1 0 011-1z","M1 6l9 6 9-6"])),
+        SbBtn("calllog","Call log",null,false,ic(["M9 11l3 3 6-6","M4 4h12a1 1 0 011 1v11a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z"])),
+        SbBtn("reply-inbox","Reply inbox",null,false,ic(["M3 8l7.89 5.26a2 2 0 002.22 0L21 8","M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"])),
+        h('div',{style:{fontSize:9,fontWeight:500,color:"#c5cae9",textTransform:"uppercase",letterSpacing:".07em",padding:"8px 8px 3px"}},"SOPs"),
+        SbBtn("sops","All SOPs",null,false,ic(["M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"]))
+      ),
+      h('div',{style:{padding:"8px 8px 0",borderTop:"1px solid #e8eaf0"}},
+        h('div',{style:{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",fontSize:12,color:GR}},h(Av,{id:"G",size:20}),"Gurupma")
+      )
+    ),
+
+    /* ── MAIN ── */
+    h('div',{style:{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",minWidth:0}},
+
+      /* topbar */
+      h('div',{style:{background:"#fff",borderBottom:"1px solid #e8eaf0",padding:"0 16px",height:44,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,gap:12}},
+        h('div',{style:{display:"flex",alignItems:"baseline",gap:8,minWidth:0}},
+          h('span',{style:{fontSize:15,fontWeight:500,color:"#1a1a2e"}},pageLabels[page]||page),
+          page==="dashboard"&&h('span',{style:{fontSize:11,color:GR}},"Mon 6 Apr 2026"),
+          page==="calendar"&&h('span',{style:{fontSize:11,color:GR}},"6–12 Apr 2026"),
+          page==="db-tasks"&&h('span',{style:{fontSize:11,color:GR}},openTasks.length+" open · ad hoc"),
+          page==="conversations"&&h('span',{style:{fontSize:11,color:GR}},"Live · "+LOC.slice(0,8)+"…")
+        ),
+        h('div',{style:{display:"flex",alignItems:"center",gap:6,flexShrink:0}},
+          h('button',{style:{fontSize:11,padding:"5px 11px",borderRadius:6,border:"1px solid #b2f2bb",background:"#fff",color:GN,fontWeight:500,display:"flex",alignItems:"center",gap:4,cursor:"pointer"}},
+            h('div',{style:{width:6,height:6,borderRadius:"50%",background:GN}}),"Data check ↗"
+          ),
+          h('button',{onClick:function(){setPage("standup");},style:{fontSize:11,padding:"5px 11px",borderRadius:6,border:"1px solid #e8eaf0",background:"#fff",color:GR,fontWeight:500,cursor:"pointer"}},"Standup"),
+          h('button',{onClick:function(){setPage("eod");},style:{fontSize:11,padding:"5px 11px",borderRadius:6,border:"1px solid "+BL,background:BL,color:"#fff",fontWeight:500,cursor:"pointer"}},"EOD"),
+          h(Av,{id:"G",size:28})
+        )
+      ),
+
+      /* timeline (dashboard only) */
+      page==="dashboard"&&h('div',{style:{background:"#fff",borderBottom:"1px solid #e8eaf0",padding:"7px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}},
+        h('div',{style:{display:"flex",alignItems:"center"}},
+          h('span',{style:{fontSize:11,fontWeight:500,color:GR,marginRight:4}},"Viewing:"),
+          Object.entries({today:"Today",yesterday:"Yesterday","7d":"Last 7 days","30d":"Last 30 days",mtd:"Month to date"}).map(function(entry){
+            var k=entry[0],v=entry[1];
+            return h('button',{key:k,onClick:function(){setTl(k);},style:{fontSize:11,padding:"3px 11px",borderRadius:20,border:"1px solid #e8eaf0",background:tl===k?"#1a1a2e":"#fff",color:tl===k?"#fff":GR,fontWeight:500,marginLeft:4,cursor:"pointer"}},v);
+          })
+        ),
+        h('div',{style:{fontSize:11,fontWeight:500,color:"#1a1a2e",background:"#f5f6fa",padding:"3px 10px",borderRadius:6,border:"1px solid #e8eaf0"}},d.l)
+      ),
+
+      /* ── DASHBOARD ── */
+      page==="dashboard"&&h('div',{style:{flex:1,overflowY:"auto",padding:14}},
+        h('div',{style:{display:"flex",gap:6,marginBottom:12}},
+          [["all","All"],["acq","Acquisition"],["ops","Operations"],["del","Delivery"]].map(function(kv){
+            var k=kv[0],v=kv[1];
+            return h('button',{key:k,onClick:function(){setPillar(k);},style:{fontSize:11,padding:"4px 12px",borderRadius:20,border:"1px solid",borderColor:pillar===k?BL:"#e8eaf0",background:pillar===k?BL:"#fff",color:pillar===k?"#fff":GR,fontWeight:500,cursor:"pointer"}},v);
+          })
+        ),
+        (pillar==="all"||pillar==="acq")&&h('div',{style:{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:8,marginBottom:8}},
+          [
+            {label:"Closes",val:d.cl,sub:d.l,color:d.cl>0?GN:GR},
+            {label:"Cash collected",val:d.ca,sub:"today",color:GN},
+            {label:"Calls booked",val:d.bk,sub:"vs 50/wk",color:RD},
+            {label:"Close rate",val:"—",sub:"Target 30%+",color:AM},
+          ].map(function(sc,i){return h(StatCard,Object.assign({key:i},sc));})
+        ),
+        (pillar==="all"||pillar==="ops")&&h('div',{style:{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:8,marginBottom:8}},
+          [
+            {label:"Balances",val:"0",sub:"All clear",color:GN},
+            {label:"Payroll",val:"Not started",sub:"24d to month end",color:AM},
+            {label:"Utilisation",val:"OK",sub:"Within 20h cap",color:GN},
+            {label:"Weekly stats",val:"Incomplete",sub:"w/c 31 Mar",color:RD},
+          ].map(function(sc,i){return h(StatCard,Object.assign({key:i},sc));})
+        ),
+        (pillar==="all"||pillar==="del")&&h('div',{style:{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:8,marginBottom:8}},
+          [
+            {label:"Attendance",val:"—",sub:"Target 80%+",color:RD},
+            {label:"Homework",val:"—",sub:"Target 70%+",color:RD},
+            {label:"Onboarding",val:"0",sub:"All clear",color:GN},
+            {label:"Offboarding",val:"3",sub:"Overdue — Cohort 9",color:RD},
+          ].map(function(sc,i){return h(StatCard,Object.assign({key:i},sc));})
+        ),
+        h('div',{style:{display:"grid",gridTemplateColumns:"1fr 210px",gap:8,marginTop:8}},
+
+          /* routines panel */
+          h('div',{style:{background:"#fff",borderRadius:8,border:"1px solid #e8eaf0",overflow:"hidden"}},
+            h('div',{style:{padding:"9px 13px",borderBottom:"1px solid #f0f2f7",display:"flex",alignItems:"center",justifyContent:"space-between"}},
+              h('div',{style:{fontSize:12,fontWeight:500,color:"#1a1a2e"}},"Routines ",h('span',{style:{color:GR,fontWeight:400}},"· "+rts.length)),
+              h('div',{style:{display:"flex",gap:4}},
+                [["all","All"],["Needs Improvement","Needs work"]].map(function(kv){
+                  var k=kv[0],v=kv[1];
+                  return h('button',{key:k,onClick:function(){setRFilt(k);},style:{fontSize:10,padding:"2px 7px",borderRadius:4,border:"none",background:rFilt===k?"#eef2ff":"none",color:rFilt===k?BL:GR,fontWeight:rFilt===k?500:400,cursor:"pointer"}},v);
+                })
+              )
+            ),
+            h('div',{style:{maxHeight:170,overflowY:"auto"}},
+              rts.map(function(r,i){
+                return h('div',{key:i,onClick:function(){setPage("db-routines");},style:{display:"flex",alignItems:"center",gap:8,padding:"7px 13px",borderBottom:"0.5px solid #f5f6fa",cursor:"pointer"}},
+                  h('div',{style:{width:6,height:6,borderRadius:"50%",background:r.s==="Going Well"?GN:r.s==="Building Momentum"?AM:RD,flexShrink:0}}),
+                  h('div',{style:{flex:1,fontSize:11,fontWeight:500,color:"#1a1a2e",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},r.n),
+                  h(Av,{id:r.p,size:16}),
+                  h('span',{style:{fontSize:9,color:GR}},r.f),
+                  r.s!=="Going Well"&&h('span',{style:{fontSize:9,padding:"2px 5px",borderRadius:4,fontWeight:500,color:r.s==="Building Momentum"?AM:RD,background:r.s==="Building Momentum"?"#fff8e1":"#fff5f5"}},r.s==="Building Momentum"?"Building":"Action")
+                );
+              })
+            )
+          ),
+
+          /* right column */
+          h('div',{style:{display:"flex",flexDirection:"column",gap:8}},
+            /* health */
+            h('div',{style:{background:"#fff",borderRadius:8,border:"1px solid #e8eaf0",overflow:"hidden"}},
+              h('div',{style:{padding:"9px 13px",borderBottom:"1px solid #f0f2f7",fontSize:12,fontWeight:500,color:"#1a1a2e"}},"Health overview"),
+              h('div',{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:5,padding:"9px 11px"}},
+                [[ROUTINES.filter(function(r){return r.s==="Needs Improvement";}).length,"Needs",RD,"#fff5f5","#ffc9c9"],
+                 [ROUTINES.filter(function(r){return r.s==="Building Momentum";}).length,"Building",AM,"#fff8e1","#ffe08a"],
+                 [ROUTINES.filter(function(r){return r.s==="Going Well";}).length,"Well",GN,"#f0fdf4","#b2f2bb"]
+                ].map(function(item){
+                  return h('div',{key:item[1],style:{borderRadius:6,padding:"7px 8px",background:item[3],border:"1px solid "+item[4]}},
+                    h('div',{style:{fontSize:15,fontWeight:700,color:item[2]}},item[0]),
+                    h('div',{style:{fontSize:9,color:GR,textTransform:"uppercase",letterSpacing:".05em"}},item[1])
+                  );
+                })
+              )
+            ),
+            /* open tasks */
+            h('div',{style:{background:"#fff",borderRadius:8,border:"1px solid #e8eaf0",overflow:"hidden"}},
+              h('div',{style:{padding:"9px 13px",borderBottom:"1px solid #f0f2f7",display:"flex",alignItems:"center",justifyContent:"space-between"}},
+                h('div',{style:{fontSize:12,fontWeight:500,color:"#1a1a2e"}},"Open tasks ",h('span',{style:{color:GR,fontWeight:400}},"· "+openTasks.length)),
+                h('button',{onClick:function(){setPage("db-tasks");},style:{fontSize:10,color:BL,background:"none",border:"none",cursor:"pointer",fontWeight:500}},"View all →")
+              ),
+              h('div',{style:{padding:"6px 10px",maxHeight:120,overflowY:"auto"}},
+                openTasks.slice(0,6).map(function(t){
+                  return h('div',{key:t.id,onClick:function(){setPage("db-tasks");},style:{display:"flex",alignItems:"center",gap:5,padding:"4px 6px",borderRadius:5,background:"#f9fafb",border:"1px solid #f0f2f7",fontSize:11,cursor:"pointer",marginBottom:3}},
+                    h('div',{style:{width:5,height:5,borderRadius:"50%",background:t.pr==="High"?RD:t.pr==="Medium"?AM:GN,flexShrink:0}}),
+                    h('span',{style:{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:"#1a1a2e",fontSize:10}},t.n),
+                    h(Av,{id:t.own,size:14})
+                  );
+                }),
+                h('button',{onClick:function(){setPage("calendar");},style:{fontSize:9,color:BL,background:"none",border:"none",cursor:"pointer",padding:"2px 6px",marginTop:2}},"View calendar →")
+              )
+            ),
+            /* today preview */
+            h('div',{style:{background:"#fff",borderRadius:8,border:"1px solid #e8eaf0",overflow:"hidden"}},
+              h('div',{style:{padding:"9px 13px",borderBottom:"1px solid #f0f2f7",display:"flex",alignItems:"center",justifyContent:"space-between"}},
+                h('div',{style:{fontSize:12,fontWeight:500,color:"#1a1a2e"}},"Today"),
+                h('button',{onClick:function(){setPage("calendar");},style:{fontSize:10,color:BL,background:"none",border:"none",cursor:"pointer",fontWeight:500}},"Calendar →")
+              ),
+              h('div',{style:{padding:"6px 10px",maxHeight:100,overflowY:"auto"}},
+                EVENTS.filter(function(e){return e.d==="06";}).slice(0,5).map(function(e){
+                  return h('div',{key:e.id,style:{display:"flex",alignItems:"center",gap:6,padding:"3px 0",cursor:"pointer"},onClick:function(){setPage("calendar");}},
+                    h('div',{style:{width:3,minHeight:16,background:e.col,borderRadius:2,flexShrink:0}}),
+                    h('span',{style:{fontSize:10,color:GR,minWidth:40,flexShrink:0}},m2t(e.s)),
+                    h('span',{style:{fontSize:11,color:"#1a1a2e",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},e.ti)
+                  );
+                })
+              )
+            )
+          )
+        )
+      ),
+
+      /* ── CALENDAR ── */
+      page==="calendar"&&h(CalendarPage,{tasks:tasks,setTasks:setTasks}),
+
+      /* ── TASKS ── */
+      page==="db-tasks"&&h(TasksPage,{tasks:tasks,setTasks:setTasks,goCalendar:function(){setPage("calendar");}}),
+
+      /* ── SALES DB ── */
+      page==="db-sales"&&h('div',{style:{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}},
+        h('div',{style:{padding:"10px 14px",background:"#fff",borderBottom:"1px solid #e8eaf0",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}},
+          h('span',{style:{fontSize:11,color:GR,background:"#f5f6fa",padding:"3px 8px",borderRadius:5}},"6 records"),
+          h('a',{href:"https://www.notion.so/293b5ac429c680d09f48c5833fd1ea1b",target:"_blank",style:{fontSize:11,padding:"5px 10px",borderRadius:6,border:"1px solid #e8eaf0",background:"#fff",color:BL,fontWeight:500}},"Open in Notion →")
+        ),
+        h('div',{style:{flex:1,overflow:"auto",padding:"0 14px 14px"}},
+          h('table',{style:{width:"100%",borderCollapse:"collapse",marginTop:12,fontSize:12}},
+            h('thead',null,h('tr',null,["Name","Date","Person","Outcome","Payment","Course","Cash","Status"].map(function(c){return h('th',{key:c,style:{textAlign:"left",padding:"7px 10px",borderBottom:"1px solid #e8eaf0",fontSize:9,fontWeight:500,color:GR,textTransform:"uppercase",background:"#fff",position:"sticky",top:0,zIndex:1}},c);}))),
+            h('tbody',null,
+              [{n:"Sharan Matharu",d:"06/04",p:"Gurupma",oc:"Closed",py:true,co:"Beginners Course",ca:400,st:"Need to Onboard"},
+               {n:"Simranjeet Duhra",d:"06/04",p:"Gurupma",oc:"Closed",py:true,co:"Beginners Course",ca:400,st:"Need to Onboard"},
+               {n:"Aman Badwal",d:"06/04",p:"Gurupma",oc:"Follow Up",py:false,co:"—",ca:0,st:""},
+               {n:"Bindi Chana",d:"07/04",p:"Gurupma",oc:"—",py:false,co:"—",ca:0,st:""},
+               {n:"Preet Kaur",d:"15/04",p:"Adnan",oc:"—",py:false,co:"—",ca:0,st:""},
+               {n:"Sukhbinder Paul",d:"16/04",p:"Adnan",oc:"—",py:false,co:"—",ca:0,st:""},
+              ].map(function(r,i){
+                return h('tr',{key:i,style:{borderBottom:"0.5px solid #f5f6fa"}},
+                  h('td',{style:{padding:"8px 10px",fontWeight:500,color:"#1a1a2e"}},r.n),
+                  h('td',{style:{padding:"8px 10px",color:GR}},r.d),
+                  h('td',{style:{padding:"8px 10px",color:GR}},r.p),
+                  h('td',{style:{padding:"8px 10px"}},r.oc!=="—"?pill(r.oc==="Closed"?GN:AM,r.oc==="Closed"?"#f0fdf4":"#fff8e1",r.oc):"—"),
+                  h('td',{style:{padding:"8px 10px",color:r.py?GN:RD}},r.py?"Yes":"No"),
+                  h('td',{style:{padding:"8px 10px",color:GR}},r.co),
+                  h('td',{style:{padding:"8px 10px",color:"#1a1a2e"}},r.ca?"£"+r.ca:"—"),
+                  h('td',{style:{padding:"8px 10px"}},r.st?pill(AM,"#fff8e1",r.st):"—")
+                );
+              })
+            )
+          )
+        )
+      ),
+
+      /* ── ROUTINES DB ── */
+      page==="db-routines"&&h('div',{style:{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}},
+        h('div',{style:{padding:"10px 14px",background:"#fff",borderBottom:"1px solid #e8eaf0",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}},
+          h('span',{style:{fontSize:11,color:GR,background:"#f5f6fa",padding:"3px 8px",borderRadius:5}},"10 records"),
+          h('a',{href:"https://www.notion.so/2a4b5ac429c680e180cbe01ff5c614b0",target:"_blank",style:{fontSize:11,padding:"5px 10px",borderRadius:6,border:"1px solid #e8eaf0",background:"#fff",color:BL,fontWeight:500}},"Open in Notion →")
+        ),
+        h('div',{style:{flex:1,overflow:"auto",padding:"0 14px 14px"}},
+          h('table',{style:{width:"100%",borderCollapse:"collapse",marginTop:12,fontSize:12}},
+            h('thead',null,h('tr',null,["Name","Area","Status","Freq","Owner"].map(function(c){return h('th',{key:c,style:{textAlign:"left",padding:"7px 10px",borderBottom:"1px solid #e8eaf0",fontSize:9,fontWeight:500,color:GR,textTransform:"uppercase",background:"#fff",position:"sticky",top:0,zIndex:1}},c);}))),
+            h('tbody',null,
+              ROUTINES.map(function(r,i){
+                return h('tr',{key:i,style:{borderBottom:"0.5px solid #f5f6fa"}},
+                  h('td',{style:{padding:"8px 10px",fontWeight:500,color:"#1a1a2e"}},r.n),
+                  h('td',{style:{padding:"8px 10px"}},pill(r.a==="Acquisition"?AM:r.a==="Operations"?BL:"#6741d9",r.a==="Acquisition"?"#fff8e1":r.a==="Operations"?"#eef2ff":"#f3f0ff",r.a)),
+                  h('td',{style:{padding:"8px 10px"}},pill(r.s==="Going Well"?GN:r.s==="Building Momentum"?AM:RD,r.s==="Going Well"?"#f0fdf4":r.s==="Building Momentum"?"#fff8e1":"#fff5f5",r.s)),
+                  h('td',{style:{padding:"8px 10px",color:GR}},r.f),
+                  h('td',{style:{padding:"8px 10px"}},h('div',{style:{display:"flex",alignItems:"center",gap:5}},h(Av,{id:r.p,size:16}),h('span',{style:{fontSize:11,color:GR}},TM[r.p]?TM[r.p].name:r.p)))
+                );
+              })
+            )
+          )
+        )
+      ),
+
+      /* ── DAILY ACTION PANELS — Claude runs inline ── */
+      isWiz&&h(DailyActionPanel,{page:page,tasks:tasks,setTasks:setTasks}),
+
+      /* ── CONVERSATIONS ── */
+      page==="conversations"&&h(ConversationsPage,null),
+
+      /* ── SOPs ── */
+      page==="sops"&&h(SOPsPage,null)
+    )
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(h(App,null));
+</script>
+</body>
+</html>
